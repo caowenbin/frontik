@@ -27,6 +27,8 @@ class FrontikTestInstance(object):
         self.supervisor = supervisor
 
     def start(self):
+        if self.port:
+            return 
         for port in xrange(9000, 10000):
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,22 +55,20 @@ class FrontikTestInstance(object):
             if fun():
                 return
             time.sleep(0.1)
-
         assert(fun())
 
     @contextlib.contextmanager
     def instance(self):
-        if not self.port:
-             self.start()
+        self.start()
         try:
             yield self.port
         finally:
+            data = urllib2.urlopen("http://localhost:{0}/status/".format(self.port)).read()
+            print data
             data = urllib2.urlopen("http://localhost:{0}/ph_count/".format(self.port)).read().split("\n")
             ph_count = int(data[0])
             refs = data[1:]
             print "ph_count={0}".format(ph_count)
-            print "refs={0}".format(refs)
-
 
     @contextlib.contextmanager
     def get_page_xml(self, page_name, xsl=True):

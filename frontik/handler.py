@@ -24,6 +24,8 @@ import frontik.handler_xml_debug
 import frontik.future as future
 
 import logging
+import httplib
+
 log = logging.getLogger('frontik.handler')
 
 def _parse_response_smth(response, logger = log, parser=None, type=None):
@@ -200,23 +202,28 @@ class PageHandler(tornado.web.RequestHandler):
         raise HTTPError(401, headers={'WWW-Authenticate': auth_header})
 
 
-    def get_error_html(self, status_code, **kwargs):
+    def write_error(self, status_code, **kwargs):
+        if 'exc_info' in kwargs:
+            exc_info = kwargs.pop('exc_info')
+            kwargs['exception'] = exc_info[1]
+
         if  self._prepared and self.debug.debug_mode_logging:
-            return self.debug.get_debug_page(status_code, **kwargs)
+            self.finish(self.debug.get_debug_page(status_code, **kwargs))
         else:
-            #if not prepared (for example, working handlers count limit) or not in
-            #debug mode use default tornado error page
-            return super(PageHandler, self).get_error_html(status_code, **kwargs)
+            self.finish("<html><title>%(code)d: %(message)s</title>"
+                        "<body>%(code)d: %(message)s</body></html>" % {
+                        "code": status_code,
+                        "message": httplib.responses[status_code],
+                    })
+
 
 
     def send_error(self, status_code = 500, headers = None, **kwargs):
         if headers is None:
             headers = {}
         exception = kwargs.get("exception", None)
-        need_finish = ((exception is not None) and ((199 < status_code < 400) or
-                        (getattr(exception, "xml", None) or getattr(exception, "text", None))))
 
-        if need_finish:
+        if exception is not None:
             self.set_status(status_code)
             for (name, value) in headers.iteritems():
                 self.set_header(name, value)
