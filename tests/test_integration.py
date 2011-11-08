@@ -26,11 +26,10 @@ def simple_map2fs_test():
         assert(not html.find("ok") is None)
 
 def cdata_test():
-    with frontik_debug.instance() as srv_port:
-        with frontik_debug.get_page_text("test_app/cdata/?port=%s" % srv_port) as html:
-            print html
-            assert(not html.find("test") is None)
-            assert(not html.find("CDATA") is None)
+    with frontik_debug.get_page_text("test_app/cdata/") as html:
+        print html
+        assert html.find("test") != -1
+        assert html.find("CDATA") != -1
 
 def url_types_test_1():
     with frontik_debug.instance() as srv_port:
@@ -134,11 +133,9 @@ def test_fib6():
 
 
 def test_timeout():
-    with frontik_debug.instance() as srv_port:
+    with FrontikTestInstance("./tests/projects/frontik.cfg").instance() as srv_port:
         xml = etree.fromstring(urllib2.urlopen("http://localhost:{0}/test_app/long_page_request/?port={0}".format(srv_port)).read())
-
         assert(xml.text == "error")
-
         time.sleep(2)
 
 def test_finishexception():

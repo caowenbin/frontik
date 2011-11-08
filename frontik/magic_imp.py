@@ -13,9 +13,13 @@ def gen_module_name(app_name, module_name=None):
     else:
         return 'frontik.imp.{0}'.format(app_name)
 
+app_cache = {}
 
 class FrontikAppImporter(object):
     def __init__(self, name, root):
+        global app_cache
+        assert app_cache.get(name, None) is None, "Must not be two apps with same name"
+        app_cache[name] = self
         self.root = root
         self.name = name
 

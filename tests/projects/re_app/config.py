@@ -21,3 +21,5 @@ urls=[
         ("/+not_simple", pages.simple.Page),
         ("", Map2ModuleName(pages)),
 ]
+
+app_name = 're_app_name'

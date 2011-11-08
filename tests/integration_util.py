@@ -28,7 +28,7 @@ class FrontikTestInstance(object):
 
     def start(self):
         if self.port:
-            return 
+            return
         for port in xrange(9000, 10000):
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -45,10 +45,15 @@ class FrontikTestInstance(object):
         self.port = port
 
 
+    def finish(self):
+        if self.port:
+            self.supervisor.stop_worker(self.port)
+            self.wait_for(lambda: not(self.supervisor.is_running(self.port)))
+            self.supervisor.rm_pidfile(self.port)
+            self.port = None
+
     def __del__(self):
-        self.supervisor.stop_worker(self.port)
-        self.wait_for(lambda: not(self.supervisor.is_running(self.port)))
-        self.supervisor.rm_pidfile(self.port)
+        self.finish()
 
     def wait_for(self, fun, n=50):
         for i in range(n):
@@ -59,28 +64,26 @@ class FrontikTestInstance(object):
 
     @contextlib.contextmanager
     def instance(self):
-        self.start()
         try:
+            self.start()
             yield self.port
         finally:
-            data = urllib2.urlopen("http://localhost:{0}/status/".format(self.port)).read()
-            print data
+            print urllib2.urlopen("http://localhost:{0}/status/".format(self.port)).read()
             data = urllib2.urlopen("http://localhost:{0}/ph_count/".format(self.port)).read().split("\n")
             ph_count = int(data[0])
-            refs = data[1:]
             print "ph_count={0}".format(ph_count)
 
     @contextlib.contextmanager
     def get_page_xml(self, page_name, xsl=True):
         with self.instance() as srv_port:
             data = get_page(srv_port, page_name, xsl).read()
-    
+
             try:
                 res = etree.fromstring(data)
             except:
                 print "failed to parse xml: \"%s\"" % (data,)
                 raise
-    
+
             yield res
 
     @contextlib.contextmanager

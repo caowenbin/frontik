@@ -84,41 +84,39 @@ class Stats(object):
 
 stats = Stats()
 
-class PageLogger(logging.Logger):
-    '''
-    This class is supposed to fix huge memory 'leak' in logging
-    module. I.e. every call to logging.getLogger(some_unique_name)
-    wastes memory as resulting logger is memoized by
-    module. PageHandler used to create unique logger on each request
-    by call logging.getLogger('frontik.handler.%s' %
-    (self.request_id,)). This lead to wasting about 10Mb per 10K
-    requests.
-    '''
+class ContextFilter(logging.Filter):
+    def filter(self, record):
+        record.name = '.'.join(map(str, filter(None, map(lambda att: getattr(record, att, None), ['name', 'app_name', 'handler_name']))))
+        return True
+log.addFilter(ContextFilter())
 
-    def __init__(self, name, page, zero_time):
-        logging.Logger.__init__(self, 'frontik.handler.{0}'.format(name))
+class PageLogger(logging.LoggerAdapter):
+    def __init__(self, name, page, zero_time, app_name = None):
+        super(PageLogger, self).__init__(log, dict(handler_name = name, app_name = app_name))
         self.page = page
         self._time = zero_time
         self.stages = []
 
-
-    def handle(self, record):
-        logging.Logger.handle(self, record)
-        log.handle(record)
+        #backcompatibility with logger
+        self.warn = self.warning
 
     def stage_tag(self, stage):
-        self._stage_tag(stage, (time.time() - self._time) * 1000)
-        self._time = time.time()
+        now = time.time()
+        self._stage_tag(stage, (now - self._time) * 1000)
+        self._time = now
 
     def _stage_tag(self, stage, time_delta):
         self.stages.append((stage, time_delta))
-        self.debug('Stage: {stage}'.format(stage = stage))
+        self.debug('Stage: {0}'.format(stage))
 
     def stage_tag_backdate(self, stage, time_delta):
         self._stage_tag(stage, time_delta)
 
     def process_stages(self):
-        self.debug("Stages for {0} : ".format(self.page) + " ".join(["{0}:{1:.2f}ms".format(k, v) for k, v in self.stages]))
+        self.debug("Stages for {0} : {1}".format(self.page, " ".join(["{0}:{1:.2f}ms".format(k, v) for k, v in self.stages])))
+
+    def addHandler(self, *a, **kw):
+        self.logger.addHandler(*a, **kw)
 
 
 class PageHandlerGlobals(object):
@@ -135,19 +133,13 @@ class PageHandlerGlobals(object):
 
 
 class PageHandler(tornado.web.RequestHandler):
-
-    # to restore tornado.web.RequestHandler compatibility
     def __init__(self, application, request, ph_globals=None, **kwargs):
         self.handler_started = time.time()
         self._prepared = False
 
         self.name = self.__class__.__name__
         self.request_id = request.headers.get('X-Request-Id', stats.next_request_id())
-        if hasattr(ph_globals.config, 'app_name') and ph_globals.config.app_name:
-            handler_name = '{0}.{1}'.format(ph_globals.config.app_name, self.request_id)
-        else:
-            handler_name = self.request_id
-        self.log = PageLogger(handler_name, request.path or request.uri, self.handler_started,)
+        self.log = PageLogger(self.request_id, request.path or request.uri, self.handler_started, getattr(ph_globals.config, 'app_name', None))
 
         tornado.web.RequestHandler.__init__(self, application, request, logger = self.log, **kwargs)
 

@@ -14,7 +14,6 @@ import frontik.magic_imp
 import frontik.doc
 from frontik import __version__
 from frontik import etree
-from tornado.httpserver import HTTPRequest
 import urlparse
 
 log = logging.getLogger('frontik.server')
@@ -181,8 +180,11 @@ class App(object):
             #we do not want to break frontik on app
             #initialization error, so we report error and skip
             #the app.
-            self.log.exception('failed to initialize, skipping from configuration')
-            self.initialized_wo_error = False
+            if options.debug:
+                self.log.exception('failed to initialize, skipping from configuration')
+                self.initialized_wo_error = False
+            else:
+                raise 
 
     def init_app_package(self, name):
         self.module = imp.new_module(frontik.magic_imp.gen_module_name(name))

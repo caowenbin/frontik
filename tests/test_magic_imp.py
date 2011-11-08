@@ -8,7 +8,7 @@ def test_simple():
     assert(a.a == 10)
 
 def import_syntax_error_test():
-    importer = frontik.magic_imp.FrontikAppImporter("test_app", "tests/projects/test_app")
+    importer = frontik.magic_imp.FrontikAppImporter("new_test_app", "tests/projects/test_app")
 
     try:
         a = importer.imp_app_module("syntax_error")

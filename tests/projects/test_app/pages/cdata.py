@@ -1,5 +1,6 @@
 import frontik.handler
 from frontik import etree
+from tornado.options import options
 
 CDATA_XML = '<root><![CDATA[test<ba//d>]]></root>'
 
@@ -9,7 +10,9 @@ class Page(frontik.handler.PageHandler):
             xpath = xml.xpath("/doc/*")
             assert len(xpath) == 1
             assert etree.tostring(xpath[0]) == CDATA_XML
-        self.post_url("http://localhost:%s/test_app/cdata/" % self.get_argument("port"), "", callback=_cb)
+
+        port = options.port
+        self.doc.put(self.post_url("http://localhost:%s/test_app/cdata/" % port, "", callback=_cb))
 
     def post_page(self):
         parser = etree.XMLParser(strip_cdata=False)
