@@ -39,12 +39,6 @@ class StatusHandler(tornado.web.RequestHandler):
         self.write('http reqs made: %s\n' % (handler.stats.http_reqs_count,))
 
 
-class StopHandler(tornado.web.RequestHandler):
-    def get(self):
-        log.info('requested shutdown')
-        tornado.ioloop.IOLoop.instance().stop()
-
-
 class PdbHandler(tornado.web.RequestHandler):
     def get(self):
         import pdb
@@ -260,7 +254,6 @@ def get_app(app_urls, app_dict=None):
     return tornado.web.Application([
         (r'/version/', VersionHandler),
         (r'/status/', StatusHandler),
-        (r'/stop/', StopHandler),
         (r'/types_count/', CountTypesHandler),
         (r'/pdb/', PdbHandler),
         (r'/ph_count/', CountPageHandlerInstancesHandler),

@@ -249,9 +249,6 @@ class PageHandler(tornado.web.RequestHandler):
             self.finish_page()
 
     def finish(self, chunk = None):
-        if hasattr(self, 'whc_limit'):
-            self.whc_limit.release()
-
         self.log.debug('done in %.2fms', (time.time() - self.handler_started) * 1000)
         self.log.process_stages()
 
@@ -263,9 +260,16 @@ class PageHandler(tornado.web.RequestHandler):
             self._status_code = 200
         else:
             res = chunk
-
         tornado.web.RequestHandler.finish(self, res)
 
+    def on_request_close(self):
+        if hasattr(self, 'whc_limit'):
+            self.whc_limit.release()
+
+    def on_connection_close(self):
+        if hasattr(self, 'whc_limit'):
+            self.whc_limit.release()
+        
     def get_page(self):
         ''' Эта функция должна быть переопределена в наследнике и
         выполнять актуальную работу хендлера '''

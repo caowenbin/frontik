@@ -2,13 +2,16 @@
 # -*- coding: utf-8 -*-
 import logging
 import sys
+import time
 
 import tornado.options
 import tornado_util.server
 from tornado.options import options
+import tornado.ioloop
 
 import frontik.app
 import frontik.options
+import frontik.handler_whc_limit
 
 log = logging.getLogger("frontik.server")
 
@@ -32,4 +35,16 @@ def main(config_file="/etc/frontik/frontik.cfg"):
         log.exception("failed to initialize frontik.app, quitting")
         sys.exit(1)
 
-    tornado_util.server.main(app)
+    def on_server():
+        log.info('Pending %s', frontik.handler_whc_limit.working_handlers_counter)
+        def whc_listen():
+            def stop():
+                log.info('No pending workers - graceful down')
+                tornado.ioloop.IOLoop.instance().stop()
+            tornado.ioloop.IOLoop.instance().add_callback(stop)
+        frontik.handler_whc_limit.working_handlers_counter.subscribe(whc_listen)
+
+    def on_ioloop():
+        log.info('Left wo response: %s', frontik.handler_whc_limit.working_handlers_counter)
+        
+    tornado_util.server.main(app, on_server, on_ioloop)
