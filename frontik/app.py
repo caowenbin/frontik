@@ -1,11 +1,12 @@
+#coding: utf-8
+
 import imp
 import logging
-import os.path
 import sys
 import re
 import time
 
-import lxml.etree as etree
+from request_context import in_context, get_to_dispatch, stats
 import tornado.autoreload
 import tornado.web
 import tornado.ioloop
@@ -13,16 +14,13 @@ from tornado.options import options
 
 import frontik.magic_imp
 import frontik.doc
-from frontik import __version__
-from frontik import etree
-from tornado.httpserver import HTTPRequest
-import urlparse
+import frontik.handler_xml
+import frontik.jobs
+import tornado.curl_httpclient
 
+from frontik import etree
 
 log = logging.getLogger('frontik.server')
-
-import frontik.handler as handler
-import functools
 
 class VersionHandler(tornado.web.RequestHandler):
     def get(self):
@@ -52,10 +50,10 @@ class VersionHandler(tornado.web.RequestHandler):
 class StatusHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_header('Content-Type', 'text/plain; charset=UTF-8')
-        self.write('pages served: %s\n' % (handler.stats.page_count,))
-        self.write('http reqs made: %s\n' % (handler.stats.http_reqs_count,))
-        self.write('http reqs got: %s bytes\n' % (handler.stats.http_reqs_size_sum,))
-        cur_uptime = time.time() - handler.stats.start_time
+        self.write('pages served: %s\n' % (stats.page_count,))
+        self.write('http reqs made: %s\n' % (stats.http_reqs_count,))
+        self.write('http reqs got: %s bytes\n' % (stats.http_reqs_size_sum,))
+        cur_uptime = time.time() - stats.start_time
         if cur_uptime < 60:
             res = 'uptime for : %d seconds\n' % ((cur_uptime),)
         elif cur_uptime < 3600:
@@ -107,29 +105,6 @@ class CountTypesHandler(tornado.web.RequestHandler):
         self.finish()
 
 
-def get_to_dispatch(request, field = 'path'):
-    if hasattr(request, 're_'+field):
-        return getattr(request, 're_'+field)
-    return getattr(request, field)
-
-def set_to_dispatch(request, value, field = 'path'):
-    setattr(request, 're_'+field, value)
-
-def augment_request(request, match, parse):
-    uri = get_to_dispatch(request, 'uri')
-
-    new_uri = (uri[:match.start()] + uri[match.end():])
-    split = urlparse.urlsplit(new_uri[:1] +  new_uri[1:].strip('/'))
-
-    set_to_dispatch(request, new_uri, 'uri')
-    set_to_dispatch(request, split.path, 'path')
-    set_to_dispatch(request, split.query, 'query')
-
-    arguments = match.groupdict()
-    for name, value in arguments.iteritems():
-        if value:
-            request.arguments.setdefault(name, []).extend(parse(value))
-
 class Map2ModuleName(object):
     def __init__(self, module):
         self.module = module
@@ -137,30 +112,45 @@ class Map2ModuleName(object):
         self.log = logging.getLogger('frontik.map2pages.{0}'.format(self.name))
         self.log.info('initializing...')
 
-    def __call__(self, application, request, **kwargs):
-        self.log.info('requested url: %s (%s)', get_to_dispatch(request, 'uri'), request.uri)
+    @in_context
+    def __call__(self, application, request, context=None, **kwargs):
+        context.log.info('requested url: %s (%s)', get_to_dispatch(request, 'uri'), request.uri)
 
         page_module_name = 'pages.' + '.'.join(get_to_dispatch(request,'path').strip('/').split('/'))
-        self.log.debug('page module: %s', page_module_name)
+        context.log.debug('page module: %s', page_module_name)
 
         try:
             page_module = self.module.frontik_import(page_module_name)
-            self.log.debug('using %s from %s', (self.name, page_module_name), page_module.__file__)
+            context.log.debug('using %s from %s', (self.name, page_module_name), page_module.__file__)
         except ImportError:
-            self.log.exception('%s module not found', (self.name, page_module_name))
+            context.log.exception('%s module not found', (self.name, page_module_name))
             return tornado.web.ErrorHandler(application, request, status_code=404)
         except AttributeError:
-            self.log.exception('%s is not frontik application module, but needs to be and have "frontik_import" method', self.name)
+            context.log.exception('%s is not frontik application module, but needs to be and have "frontik_import" method', self.name)
             return tornado.web.ErrorHandler(application, request, status_code=500)
         except:
-            self.log.exception('error while importing %s module', (self.name, page_module_name))
+            context.log.exception('error while importing %s module', (self.name, page_module_name))
             return tornado.web.ErrorHandler(application, request, status_code=500)
 
         if not hasattr(page_module, 'Page'):
-            log.exception('%s. Page class not found', page_module_name)
+            context.exception('%s. Page class not found', page_module_name)
             return tornado.web.ErrorHandler(application, request, status_code=404)
 
         return page_module.Page(application, request, **kwargs)
+
+
+class PageHandlerGlobals(object):
+    '''
+    Объект с настройками для всех хендлеров
+    '''
+    def __init__(self, app_package):
+        self.config = app_package.config
+
+        self.xml = frontik.handler_xml.PageHandlerXMLGlobals(app_package.config)
+
+        self.http_client = tornado.curl_httpclient.CurlAsyncHTTPClient(max_clients = 200, max_simultaneous_connections = 200)
+
+        self.executor = frontik.jobs.executor()
 
 
 class App(object):
@@ -180,12 +170,13 @@ class App(object):
             for filename in self.importer.get_probable_module_filenames('config'):
                 tornado.autoreload.watch_file(filename)
 
-            self.ph_globals = frontik.handler.PageHandlerGlobals(self.module)
-        except:
+            self.ph_globals = PageHandlerGlobals(self.module)
+        except Exception as e:
             #we do not want to break frontik on app
             #initialization error, so we report error and skip
             #the app.
             self.log.exception('failed to initialize, skipping from configuration')
+            self._init_exception = e
             self.initialized_wo_error = False
 
     def init_app_package(self, name):
@@ -205,48 +196,48 @@ class App(object):
             self.module.config.urls = [("", Map2ModuleName(self.pages_module)),]
         self.module.dispatcher = RegexpDispatcher(self.module.config.urls, self.module.__name__)
 
-    def __call__(self, application, request, **kwargs):
-        self.log.info('requested url: %s (%s)', get_to_dispatch(request, 'uri'), request.uri)
+    @in_context
+    def __call__(self, application, request, context = None, **kwargs):
+        context.log.info('requested url: %s (%s)', get_to_dispatch(request, 'uri'), request.uri)
         if not self.initialized_wo_error:
-            self.log.exception('application not loaded, because of fail during initialization')
+            context.log.error('application not loaded, because of fail during initialization')
+            context.log.error(self._init_exception)
             return tornado.web.ErrorHandler(application, request, status_code=404)
         return self.module.dispatcher(application, request, ph_globals = self.ph_globals, **kwargs)
+
 
 class RegexpDispatcher(object):
     def __init__(self, app_list, name='RegexpDispatcher'):
         self.name = name
-        self.log = logging.getLogger('frontik.dispatcher.{0}'.format(name))
-        self.log.info('initializing...')
+        log.info('initializing %r' % self)
 
         def parse_conf(pattern, app, parse=lambda x: [x,]):
-            try:
-                app._initialize()
-            except AttributeError:
-                #its mean that app is not dispatcher -> nothing to _initialize
-                pass
             return re.compile(pattern), app, parse
 
         self.apps = map(lambda app_conf: parse_conf(*app_conf), app_list)
+        log.info('finished initializing %r' % self)
 
-    def __call__(self, application, request, **kwargs):
-        self.log.info('requested url: %s (%s)', get_to_dispatch(request, 'uri'), request.uri)
+    def __repr__(self):
+        return "<RegexpDispatcher %s>" % self.name
+
+    @in_context
+    def __call__(self, application, request, context=None, **kwargs):
+        context.log.debug('in %r' % self)
         for pattern, app, parse in self.apps:
 
-            match = pattern.match(get_to_dispatch(request, 'uri'))
+            match = context.dispatch_on_url(pattern, parse)
             #app found
             if match:
-                self.log.debug('using %s' % app)
-                augment_request(request, match, parse)
                 try:
                     return app(application, request, **kwargs)
                 except tornado.web.HTTPError, e:
-                    log.exception('%s. Tornado error, %s', app, e)
+                    context.log.error('%s. Tornado error, %s', app, e)
                     return tornado.web.ErrorHandler(application, request, e.status_code)
                 except Exception, e:
-                    log.exception('%s. Internal server error, %s', app, e)
+                    context.log.exception('%s. Internal server error, %s', app, e)
                 return tornado.web.ErrorHandler(application, request, status_code=500)
 
-        self.log.exception('match for request url "%s" not found', request.uri)
+        context.log.error('match for request url "%s" not found', request.uri)
         return tornado.web.ErrorHandler(application, request, status_code=404)
 
 def get_app(app_urls, app_dict=None):

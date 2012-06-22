@@ -9,6 +9,8 @@ import time
 import traceback
 
 import lxml.etree as etree
+import frontik.app
+from request_context import in_context, stats
 import tornado.curl_httpclient
 import tornado.httpclient
 import tornado.options
@@ -72,81 +74,16 @@ class HTTPError(tornado.web.HTTPError):
         self.headers = headers
         self.args = args
 
-class Stats(object):
-    def __init__(self):
-        self.page_count = 0
-        self.http_reqs_count = 0
-        self.http_reqs_size_sum = 0
-        self.start_time = time.time()
-
-    def next_request_id(self):
-        self.page_count += 1
-        return self.page_count
-
-stats = Stats()
-
-class ContextFilter(logging.Filter):
-    def filter(self, record):
-        record.name = '.'.join(filter(None, [record.name, getattr(record, 'request_id', None)]))
-        return True
-log.addFilter(ContextFilter())
 
 
-class PageLogger(logging.LoggerAdapter):
-    def __init__(self, logger_name, page, handler_name, zero_time):
-
-        class Logger4Adapter(logging.Logger):
-            def handle(self, record):
-                logging.Logger.handle(self, record)
-                log.handle(record)
-
-        logging.LoggerAdapter.__init__(self, Logger4Adapter('frontik.handler'), dict(request_id = logger_name, page = page, handler = handler_name))
-        self._time = zero_time
-        self.stages = []
-        self.page = page
-        #backcompatibility with logger
-        self.warn = self.warning
-        self.addHandler = self.logger.addHandler
-
-    def stage_tag(self, stage):
-        self._stage_tag(stage, (time.time() - self._time) * 1000)
-        self._time = time.time()
-
-    def _stage_tag(self, stage, time_delta):
-        self.stages.append((stage, time_delta))
-        self.debug('Stage: {stage}'.format(stage = stage))
-
-    def stage_tag_backdate(self, stage, time_delta):
-        self._stage_tag(stage, time_delta)
-
-    def process_stages(self):
-        self.debug("Stages for {0} : ".format(self.page) + " ".join(["{0}:{1:.2f}ms".format(k, v) for k, v in self.stages]))
-
-    def process(self, msg, kwargs):
-        if "extra" in kwargs:
-            kwargs["extra"].update(self.extra)
-        else :
-            kwargs["extra"] = self.extra
-        return msg, kwargs
 
 
-class PageHandlerGlobals(object):
-    '''
-    Объект с настройками для всех хендлеров
-    '''
-    def __init__(self, app_package):
-        self.config = app_package.config
-
-        self.xml = frontik.handler_xml.PageHandlerXMLGlobals(app_package.config)
-
-        self.http_client = tornado.curl_httpclient.CurlAsyncHTTPClient(max_clients = 200, max_simultaneous_connections = 200)
-
-        self.executor = frontik.jobs.executor()
 
 class PageHandler(tornado.web.RequestHandler):
 
     # to restore tornado.web.RequestHandler compatibility
-    def __init__(self, application, request, ph_globals=None, **kwargs):
+    @in_context
+    def __init__(self, application, request, ph_globals=None, context=None, **kwargs):
         self.handler_started = time.time()
         self._prepared = False
 
@@ -154,9 +91,8 @@ class PageHandler(tornado.web.RequestHandler):
             raise Exception("%s need to have ph_globals" % PageHandler)
 
         self.name = self.__class__.__name__
-        self.request_id = request.headers.get('X-Request-Id', str(stats.next_request_id()))
-        logger_name = '.'.join(filter(None, [self.request_id, getattr(ph_globals.config, 'app_name', None)]))
-        self.log = PageLogger(logger_name, request.path or request.uri, self.__module__, self.handler_started)
+        self.request_id = context.request_id
+        self.log = context.log
 
         tornado.web.RequestHandler.__init__(self, application, request, logger = self.log, **kwargs)
 
