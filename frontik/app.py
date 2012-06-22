@@ -130,27 +130,6 @@ def augment_request(request, match, parse):
         if value:
             request.arguments.setdefault(name, []).extend(parse(value))
 
-def dispatcher(cls):
-    'makes on demand initializing class'
-    old_init = cls.__init__
-    def __init__(self, *args, **kwargs):
-        self._init_partial = functools.partial(old_init, self, *args, **kwargs)
-        self._inited = False
-
-    def __repr__(self):
-        return '{0}.{1}: {2}'.format(cls.__module__, cls.__name__, self.name)
-
-    def _initialize(self):
-        if not self._inited:
-            self._init_partial()
-            self._inited = True
-        return self._inited
-
-    on_demand = type(cls.__name__, (cls,), dict(__init__=__init__, _initialize=_initialize, __repr__=__repr__))
-    return on_demand
-
-
-@dispatcher
 class Map2ModuleName(object):
     def __init__(self, module):
         self.module = module
@@ -184,7 +163,6 @@ class Map2ModuleName(object):
         return page_module.Page(application, request, **kwargs)
 
 
-@dispatcher
 class App(object):
     def __init__(self, name, root):
         self.log = logging.getLogger('frontik.application.{0}'.format(name))
@@ -226,7 +204,6 @@ class App(object):
         if not hasattr(self.module.config, 'urls'):
             self.module.config.urls = [("", Map2ModuleName(self.pages_module)),]
         self.module.dispatcher = RegexpDispatcher(self.module.config.urls, self.module.__name__)
-        self.module.dispatcher._initialize()
 
     def __call__(self, application, request, **kwargs):
         self.log.info('requested url: %s (%s)', get_to_dispatch(request, 'uri'), request.uri)
@@ -235,7 +212,6 @@ class App(object):
             return tornado.web.ErrorHandler(application, request, status_code=404)
         return self.module.dispatcher(application, request, ph_globals = self.ph_globals, **kwargs)
 
-@dispatcher
 class RegexpDispatcher(object):
     def __init__(self, app_list, name='RegexpDispatcher'):
         self.name = name
@@ -279,7 +255,6 @@ def get_app(app_urls, app_dict=None):
         app_roots.extend([('/'+prefix.lstrip('/'), App(prefix.strip('/'), path)) for prefix, path in app_dict.iteritems()])
     app_roots.extend(app_urls)
     dispatcher = RegexpDispatcher(app_roots, 'root')
-    dispatcher._initialize()
 
     return tornado.web.Application([
         (r'/version/', VersionHandler),
