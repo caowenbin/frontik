@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# coding=utf-8
+
 from collections import namedtuple
 import copy
 from functools import partial
@@ -9,12 +10,15 @@ import time
 import socket
 from logging.handlers import SysLogHandler
 
+import tornado.curl_httpclient
 import tornado.options
 from tornado.escape import to_unicode
 from lxml.builder import E
 
+import frontik.options
+import frontik.util
+
 try:
-    import frontik.options
     from graypy.handler import GELFHandler, LAN_CHUNK
 
     class BulkGELFHandler(GELFHandler):
@@ -23,7 +27,7 @@ try:
             t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created))
             return "%s,%03d" % (t, record.msecs)
 
-        def handle_bulk(self, records_list, stages=None, status_code=None, exception=None, uri=None, method=None, **kwargs):
+        def handle_bulk(self, records_list, stages=None, status_code=None, uri=None, method=None, **kwargs):
             if len(records_list) > 0:
                 first_record = records_list[0]
             else:
@@ -35,7 +39,6 @@ try:
                 record_for_gelf.levelname,
                 to_unicode(record_for_gelf.getMessage()))
             record_for_gelf.short = u"{0} {1} {2}".format(method, to_unicode(uri), status_code)
-            record_for_gelf.exc_info = exception
             record_for_gelf.levelno = logging.INFO
 
             for record in records_list[1:]:
@@ -44,8 +47,9 @@ try:
                     record_for_gelf.lineno = record.lineno
                     record_for_gelf.short = record.getMessage()
                 if record.exc_info is not None:
-                    record_for_gelf.exc_info = traceback.format_exc(record.exc_info)
-                    record_for_gelf.short += "\n" + traceback.format_exc(record.exc_info)
+                    exc_traceback = traceback.format_exc(record.exc_info)
+                    record_for_gelf.exc_info = exc_traceback
+                    record_for_gelf.short += '\n' + exc_traceback
                 record_for_gelf.message += u' {0} {1} {2} \n'.format(self.format_time(record), record.levelname,
                                                                      to_unicode(record.getMessage()))
             if stages is not None:
@@ -58,7 +62,6 @@ try:
             self.close()
 
 except ImportError:
-    import frontik.options
     tornado.options.options.graylog = False
 
 log = logging.getLogger('frontik.handler')
@@ -77,9 +80,9 @@ class MonikInfoLoggingFilter(logging.Filter):
         return getattr(record, '_monik', False)
 
 
-class MonikInfoLoggingHandler(logging.FileHandler):
+class MonikInfoLoggingHandler(logging.handlers.WatchedFileHandler):
     def __init__(self):
-        logging.FileHandler.__init__(self, self.__get_logfile_name())
+        logging.handlers.WatchedFileHandler.__init__(self, self.__get_logfile_name())
         self.setLevel(logging.INFO)
         self.addFilter(MonikInfoLoggingFilter())
         self.setFormatter(logging.Formatter(tornado.options.options.logformat))
@@ -113,6 +116,39 @@ class MaxLenSysLogHandler(SysLogHandler):
         """
         prio_length = len('%d' % self.encodePriority(self.facility, self.mapPriority(record.levelname))) + 2 # 2 is length of angle brackets
         return SysLogHandler.format(self, record)[:(self.max_length - prio_length)]
+
+
+class ExceptionMonitoringHandler(object):
+    __slots__ = ('page_logger_ref',)
+
+    def __init__(self, page_logger_ref):
+        self.page_logger_ref = page_logger_ref
+
+    def handle_bulk(self, record_list, **kwargs):
+        for record in record_list:
+            if record.levelno == logging.ERROR and record.exc_info is not None:
+                self.send_exception_info(record)
+
+    def send_exception_info(self, record):
+        last_trace = record.exc_info[2]
+        while last_trace.tb_next is not None:
+            last_trace = last_trace.tb_next
+
+        exc_traceback = traceback.format_exc(record.exc_info)
+        exc_line = last_trace.tb_lineno
+        exc_function = last_trace.tb_frame.f_code.co_name
+        exc_title = repr(record.exc_info[1])
+        exc_time = record.created
+
+        self.page_logger_ref().handler_ref().http_client.fetch(frontik.util.make_post_request(
+            tornado.options.options.exception_monitoring_endpoint,
+            data=dict(
+                traceback=exc_traceback, line=exc_line, function=exc_function, title=exc_title, time=exc_time
+            )
+        ), self.send_callback)
+
+    def send_callback(self, response):
+        self.page_logger_ref().debug('exception sent to monitoring endpoint')
 
 
 class PerRequestLogBufferHandler(logging.Logger):
@@ -161,10 +197,12 @@ class PageLogger(logging.LoggerAdapter):
         self.warn = self.warning
         self.addHandler = self.logger.addHandler
 
+        if tornado.options.options.exception_monitoring_endpoint:
+            self.logger.add_bulk_handler(ExceptionMonitoringHandler(weakref.ref(self)))
+
         if tornado.options.options.graylog:
             self.logger.add_bulk_handler(BulkGELFHandler(tornado.options.options.graylog_host,
                                                          tornado.options.options.graylog_port, LAN_CHUNK, False))
-
     def stage_tag(self, stage_name):
         self._stage_tag(PageLogger.Stage(stage_name, (time.time() - self._time) * 1000))
         self._time = time.time()
@@ -197,8 +235,8 @@ class PageLogger(logging.LoggerAdapter):
     def add_bulk_handler(self, handler, auto_flush=True):
         self.logger.add_bulk_handler(handler, auto_flush)
 
-    def request_finish_hook(self, exception=None):
-        self.logger.flush(status_code=self.handler_ref()._status_code, stages=self.stages, exception=exception,
+    def request_finish_hook(self):
+        self.logger.flush(status_code=self.handler_ref()._status_code, stages=self.stages,
                           method=self.handler_ref().request.method, uri=self.handler_ref().request.uri)
 
 

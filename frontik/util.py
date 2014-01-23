@@ -168,10 +168,11 @@ def make_post_request(url, data='', headers=None, files=None,
     else:
         body = make_body(data)
 
+    headers = {} if headers is None else headers
+
     if content_type is None:
         content_type = headers['Content-Type'] if 'Content-Type' in headers else 'application/x-www-form-urlencoded'
 
-    headers = {} if headers is None else headers
     headers.update({'Content-Type': content_type, 'Content-Length': str(len(body))})
 
     return tornado.httpclient.HTTPRequest(
