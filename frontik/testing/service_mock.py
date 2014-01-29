@@ -12,6 +12,7 @@ from urlparse import urlparse, parse_qs
 from collections import namedtuple
 from tornado.httpclient import HTTPRequest
 import frozen_dict
+import traceback
 
 import sys
 import os
@@ -107,9 +108,9 @@ class ServiceMock(object):
                 if self.strict:
                     del self.routes[r]
                 return result
-        raise NotImplementedError("No route in service mock matches request to " + unquote(req.url) +
-                                    " tried to match following: '" +
-                                    "'; '".join([unquote(str(rt)) for rt in self.routes]) +
+        raise NotImplementedError("No route in service mock matches request to: \n" + unquote(req.url) +
+                                    "\n tried to match following: '" +
+                                    "';\n'".join([unquote(str(rt)) for rt in self.routes]) +
                                     "', " +
                                     "strictness = " + str(self.strict))
 
@@ -154,9 +155,9 @@ class ExpectingHandler(object):
             pass
         def write(s, callback=None):
             if callback:
-                self._callback_heap.append((None, callback))
+                self._callback_heap.append((None, callback, None))
 
-        IOLoop.instance().add_callback = lambda callback: self._callback_heap.append((None, callback))
+        IOLoop.instance().add_callback = lambda callback: self._callback_heap.append((None, callback, None))
 
 
         self.request.write = write
@@ -242,13 +243,15 @@ class ExpectingHandler(object):
             callbacks_snapshot = self._callback_heap
             self._callback_heap = []
             while callbacks_snapshot:
-                request, callback = callbacks_snapshot.pop(0)
+                request, callback, tb = callbacks_snapshot.pop(0)
                 if request:
                     self.log.debug('trying to route ' + request.url)
                     try:
                         result = self.route_request(request)
                     except NotImplementedError as e:
                         self.log.warn("Request to missing service")
+                        if tb:
+                            self.log.info("Caller stack trace might help:\n" + ''.join(traceback.format_list(tb)))
                         raise e
                     callback(result)
                     self.raise_exceptions()
@@ -283,7 +286,10 @@ class ExpectingHandler(object):
         return self._handler.doc
 
     def process_fetch(self, req, callback):
-        self._callback_heap.append((req, callback))
+        tb = traceback.extract_stack()
+        while tb and not tb.pop()[2] == 'fetch_request':
+            pass
+        self._callback_heap.append((req, callback, tb))
 
 #===
 
