@@ -88,8 +88,8 @@ AsyncGroup = frontik.async.AsyncGroup
 
 class HTTPError(tornado.web.HTTPError):
     """ An exception that will turn into an HTTP error response """
-    def __init__(self, status_code, log_message=None, headers=None, *args, **kwargs):
-        tornado.web.HTTPError.__init__(self, status_code, log_message, *args)
+    def __init__(self, status_code, log_message=None, headers=None, **kwargs):
+        tornado.web.HTTPError.__init__(self, status_code, log_message.replace('%', '%%'))
         self.headers = headers if headers is not None else {}
         for data in ('text', 'xml', 'xsl', 'json'):
             setattr(self, data, kwargs.setdefault(data, None))
