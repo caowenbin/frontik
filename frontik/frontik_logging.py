@@ -217,5 +217,8 @@ def bootstrap_logging():
         except socket.error:
             logging.getLogger('frontik.logging').exception('cannot initialize syslog')
 
+    if not root_logger.handlers:
+        root_logger.addHandler(logging.NullHandler())
+
     for logger_name in options.suppressed_loggers:
         logging.getLogger(logger_name).setLevel(logging.WARN)
