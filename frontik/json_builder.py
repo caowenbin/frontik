@@ -6,6 +6,36 @@ from frontik.future import Future
 from frontik.http_client import RequestResult
 
 
+def _check_value(v):
+    def _check_iterable(l):
+        return [_check_value(v) for v in l]
+
+    def _check_dict(d):
+        return {k: _check_value(v) for k, v in d.iteritems()}
+
+    if isinstance(v, dict):
+        return _check_dict(v)
+    elif isinstance(v, (set, frozenset, list, tuple)):
+        return _check_iterable(v)
+    elif isinstance(v, RequestResult):
+        if v.exception is not None:
+            return JsonBuilder.get_error_node(v.exception)
+        return _check_value(v.data)
+    elif isinstance(v, Future):
+        return _check_value(v.result())
+    elif isinstance(v, JsonBuilder):
+        return _check_dict(v.to_dict())
+
+    return v
+
+
+class SpecialTypesEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (set, frozenset, RequestResult, Future, JsonBuilder)):
+            return _check_value(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
 class JsonBuilder(object):
     __slots__ = ('_data', '_encoder', 'root_node_name')
 
@@ -31,31 +61,14 @@ class JsonBuilder(object):
             'error': {k: v for k, v in exception.attrs.iteritems()}
         }
 
-    def _check_value(self, v):
-        def _check_iterable(l):
-            return [self._check_value(v) for v in l]
-
-        def _check_dict(d):
-            return dict((k, self._check_value(v)) for k, v in d.iteritems())
-
-        if isinstance(v, dict):
-            return _check_dict(v)
-        elif isinstance(v, (set, frozenset, list, tuple)):
-            return _check_iterable(v)
-        elif isinstance(v, RequestResult):
-            if v.exception is not None:
-                return self.get_error_node(v.exception)
-            return self._check_value(v.data)
-        elif isinstance(v, Future):
-            return self._check_value(v.result())
-        elif isinstance(v, JsonBuilder):
-            return _check_dict(v.to_dict())
-
-        return v
-
-    def to_dict(self):
+    def to_dict(self, _deep=True):
         result = {}
-        for chunk in self._check_value(self._data):
+        for chunk in self._data:
+            # _deep=False does not perform a full recursive walk, relying on JSONEncoder instead
+            # this is an optimization used in `to_string` method
+            if _deep or isinstance(chunk, (RequestResult, Future, JsonBuilder)):
+                chunk = _check_value(chunk)
+
             if chunk is not None:
                 result.update(chunk)
 
@@ -65,6 +78,9 @@ class JsonBuilder(object):
         return result
 
     def to_string(self):
+        result = self.to_dict(_deep=False)
+
         if self._encoder is not None:
-            return json.dumps(self.to_dict(), cls=self._encoder, ensure_ascii=False)
-        return json.dumps(self.to_dict(), ensure_ascii=False)
+            return json.dumps(result, cls=self._encoder, ensure_ascii=False)
+
+        return json.dumps(result, cls=SpecialTypesEncoder, ensure_ascii=False)

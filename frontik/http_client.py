@@ -5,7 +5,7 @@ from functools import partial
 import re
 
 from lxml import etree
-import simplejson as json
+import simplejson
 from tornado.ioloop import IOLoop
 from tornado.options import options
 
@@ -259,7 +259,7 @@ _parse_response_xml = partial(_parse_response,
                               response_type='XML')
 
 _parse_response_json = partial(_parse_response,
-                               parser=json.loads,
+                               parser=simplejson.loads,
                                response_type='JSON')
 
 DEFAULT_REQUEST_TYPES = {
