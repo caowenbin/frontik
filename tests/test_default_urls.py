@@ -25,6 +25,13 @@ class TestDefaultUrls(unittest.TestCase):
         self.assertEqual(xml.tag, 'versions')
         self.assertEqual(re_app_version, 'unknown')
 
+    def test_no_version(self):
+        xml = frontik_re_app.get_page_xml('version')
+        re_app_version = xml.findtext('application[@name="tests.projects.re_app"]/version')
+
+        self.assertEqual(xml.tag, 'versions')
+        self.assertEqual(re_app_version, 'unknown')
+
     def test_status(self):
         response = frontik_test_app.get_page('status')
 
