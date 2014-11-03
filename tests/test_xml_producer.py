@@ -2,7 +2,7 @@
 
 import unittest
 
-from .instances import frontik_test_app
+from .instances import frontik_non_debug, frontik_test_app
 
 
 class TestXsl(unittest.TestCase):
@@ -10,6 +10,10 @@ class TestXsl(unittest.TestCase):
         response = frontik_test_app.get_page('xsl/simple')
         self.assertTrue(response.headers['content-type'].startswith('text/html'))
         self.assertEqual(response.content, '<html><body><h1>ok</h1></body></html>\n')
+
+    def test_xsl_cache_simple(self):
+        response_cached = frontik_non_debug.get_page('app/xsl/simple')
+        self.assertEqual(response_cached.status_code, 200)
 
     def test_xsl_apply_error(self):
         response = frontik_test_app.get_page('xsl/apply_error')
