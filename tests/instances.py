@@ -103,6 +103,6 @@ class FrontikTestInstance(object):
 join_projects_dir = partial(os.path.join, os.path.dirname(__file__), 'projects')
 
 frontik_broken = FrontikTestInstance(join_projects_dir('broken_app'), join_projects_dir('frontik_debug.cfg'))
-frontik_test_app = FrontikTestInstance(join_projects_dir('test_app'), join_projects_dir('frontik_debug.cfg'))
-frontik_re_app = FrontikTestInstance(join_projects_dir('re_app'), join_projects_dir('frontik_debug.cfg'))
+frontik_test_app = FrontikTestInstance(join_projects_dir('test_app'), join_projects_dir('frontik_debug_test_app.cfg'))
+frontik_re_app = FrontikTestInstance(join_projects_dir('re_app'), join_projects_dir('frontik_debug_re_app.cfg'))
 frontik_non_debug = FrontikTestInstance(join_projects_dir('test_app'), join_projects_dir('frontik_non_debug.cfg'))

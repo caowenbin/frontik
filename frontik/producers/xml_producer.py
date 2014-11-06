@@ -15,22 +15,22 @@ from frontik.xml_util import xml_from_file, xsl_from_file
 
 
 class ApplicationXMLGlobals(object):
-    def __init__(self, config):
+    def __init__(self):
         self.xml_cache = frontik.file_cache.make_file_cache(
             'XML', 'XML_root',
-            getattr(config, 'XML_root', None),
+            tornado.options.options.xml_root,
             xml_from_file,
-            getattr(config, 'XML_cache_limit', None),
-            getattr(config, 'XML_cache_step', None),
+            tornado.options.options.xml_cache_limit,
+            tornado.options.options.xml_cache_step,
             deepcopy=True
         )
 
         self.xsl_cache = frontik.file_cache.make_file_cache(
             'XSL', 'XSL_root',
-            getattr(config, 'XSL_root', None),
+            tornado.options.options.xsl_root,
             xsl_from_file,
-            getattr(config, 'XSL_cache_limit', None),
-            getattr(config, 'XSL_cache_step', None)
+            tornado.options.options.xsl_cache_limit,
+            tornado.options.options.xsl_cache_step
         )
 
 

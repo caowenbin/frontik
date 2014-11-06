@@ -34,6 +34,7 @@ which run on one Frontik instance.
 | ---------------------------- | ------- | ------------  | --------------------------------------------------------------------- |
 | `app`                        | `str`   | `None`        | Directory from which to load an application (see [Frontik application structure](/docs/frontik-app.md)) |
 | `app_root_url`               | `str`   | `''`          | Root url for the application                                          |
+| `handlers_count`             | `int`   | `100`         | Limit for number of simultaneous requests handled by Frontik instance |
 | `tornado_settings`           | `dict`  | `None`        | tornado.web.Application settings                                      |
 | `autoreload`                 | `bool`  | `True`        | Restart Frontik after changes in application sources or config files  |
 | `debug`                      | `bool`  | `False`       | Enable debug mode                                                     |
@@ -56,7 +57,23 @@ which run on one Frontik instance.
 | `json_executor`              | `str`   | `'ioloop'`    | Executor type for JSON templating                                     |
 | `warn_no_jobs`               | `bool`  | `True`        | Write a warning if no jobs were found in executor queue               |
 | `timeout_multiplier`         | `float` | `1.0`         | Generic timeout multiplier for get_xxx calls (useful for testing)     |
-| `handlers_count`             | `int`   | `100`         | Limit for number of simultaneous requests handled by Frontik instance |
+| `XSL_root`                   | `str`   | `None`        | Root directory for XSL files                                          |
+| `XML_root`                   | `str`   | `None`        | Root directory for XML files                                          |
+| `XSL_cache_limit`            | `int`   | `None`        | Upper limit for XSL LRU files cache                                   |
+| `XML_cache_limit`            | `int`   | `None`        | Upper limit for XML LRU files cache                                   |
+| `XSL_cache_step`             | `int`   | `None`        | Increase in weight for XSL cache entry after each get                 |
+| `XML_cache_step`             | `int`   | `None`        | Increase in weight for XML cache entry after each get                 |
+| `template_root`              | `str`   | `None`        | Root directory for Jinja templates                                    |
+| `template_cache_limit`       | `int`   | `50`          | Upper limit for Jinja templates cache                                 |
+| `debug_labels`               | `dict`  | `None`        | Debug labels for rich debug page, a dict of `label: color` values     |
 
-There are also certain options, that are unique for each application, see
-[Configuring Frontik application](/docs/config-app.md) for more details.
+`debug_labels` option could contain something like this:
+
+```python
+debug_labels = {
+    'READONLY': '#afa',
+    'MASTER': '#ccf',
+}
+```
+
+You can use these labels to annotate http requests (see [Making HTTP requests](/docs/http-client.md)).

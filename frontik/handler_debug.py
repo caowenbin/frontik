@@ -19,6 +19,7 @@ from lxml.builder import E
 from tornado.escape import to_unicode, utf8
 from tornado.httpclient import HTTPResponse
 from tornado.httputil import HTTPHeaders, SimpleCookie
+import tornado.options
 
 import frontik.util
 import frontik.xml_util
@@ -378,8 +379,8 @@ class PageHandlerDebug(object):
         debug_log_data.set('request-id', str(self.handler.request_id))
         debug_log_data.set('stages-total', _format_number(stages_total))
 
-        if hasattr(self.handler.config, 'debug_labels') and isinstance(self.handler.config.debug_labels, dict):
-            debug_log_data.append(frontik.xml_util.dict_to_xml(self.handler.config.debug_labels, 'labels'))
+        if tornado.options.options.debug_labels:
+            debug_log_data.append(frontik.xml_util.dict_to_xml(tornado.options.options.debug_labels, 'labels'))
 
         try:
             debug_log_data.append(E.versions(

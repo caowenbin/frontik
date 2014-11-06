@@ -12,13 +12,12 @@ import frontik.util
 
 
 class ApplicationJsonGlobals(object):
-    def __init__(self, config):
-        cache_size = getattr(config, 'template_cache_limit', 50)
-        template_root = getattr(config, 'template_root', None)
+    def __init__(self):
+        template_root = tornado.options.options.template_root
 
         if template_root:
             self.environment = jinja2.Environment(
-                cache_size=cache_size,
+                cache_size=tornado.options.options.template_cache_limit,
                 auto_reload=tornado.options.options.autoreload,
                 loader=jinja2.FileSystemLoader(template_root)
             )
@@ -52,7 +51,7 @@ class JsonProducer(object):
 
     def _finish_with_template(self, callback):
         if not self.environment:
-            raise Exception('Cannot apply template, option "template_root" is not set in application config')
+            raise Exception('Cannot apply template, option "template_root" is not set in config')
 
         if self.handler._headers.get('Content-Type') is None:
             self.handler.set_header('Content-Type', 'text/html; charset=utf-8')

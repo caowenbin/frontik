@@ -183,7 +183,7 @@ class App(object):
         app_logger.info('initializing %r', self)
         self.importer = frontik.magic_imp.FrontikAppImporter(self.name, self.root)
         self.init_app_package(self.name, self.config)
-        self.app_globals = ApplicationGlobals(self.module)
+        self.app_globals = ApplicationGlobals(self.module.config)
 
     def init_app_package(self, name, config=None):
         self.module = imp.new_module(frontik.magic_imp.gen_module_name(name))
