@@ -16,7 +16,7 @@ __threadpool_executor = None
 def queue_worker(queue):
     while True:
         try:
-            (prio, (func, cb, exception_cb)) = queue.get(timeout=10)
+            func, cb, exception_cb = queue.get(timeout=10)
         except Queue.Empty:
             if tornado.options.options.warn_no_jobs:
                 jobs_log.warning('no job in 10 secs')
@@ -34,7 +34,7 @@ def queue_worker(queue):
 
 class IOLoopExecutor(object):
     @staticmethod
-    def add_job(func, cb, exception_cb, prio=None):
+    def add_job(func, cb, exception_cb):
         def _wrapper():
             try:
                 cb(func())
@@ -45,11 +45,9 @@ class IOLoopExecutor(object):
 
 
 class ThreadPoolExecutor(object):
-    count = 0
-
     def __init__(self, pool_size):
         assert pool_size > 0
-        self.events = Queue.PriorityQueue()
+        self.events = Queue.Queue()
 
         jobs_log.debug('pool size: ' + str(pool_size))
         self.workers = [threading.Thread(target=partial(queue_worker, self.events)) for i in range(pool_size)]
@@ -57,13 +55,11 @@ class ThreadPoolExecutor(object):
         [i.start() for i in self.workers]
         jobs_log.debug('active threads count = ' + str(threading.active_count()))
 
-    def add_job(self, func, cb, exception_cb, prio=10):
+    def add_job(self, func, cb, exception_cb):
         try:
-            ThreadPoolExecutor.count += 1
-            self.events.put((
-                (prio, ThreadPoolExecutor.count),
+            self.events.put(
                 (func, stack_context.wrap(cb), stack_context.wrap(exception_cb))
-            ))
+            )
         except Exception as e:
             jobs_log.exception('cannot put job to queue')
             IOLoop.instance().add_callback(partial(exception_cb, e))
