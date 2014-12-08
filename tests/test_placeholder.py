@@ -2,7 +2,7 @@
 
 import unittest
 
-from frontik.future import Future, FutureStateException
+from frontik.future import Future
 from frontik.testing import json_asserts
 from .instances import frontik_test_app
 
@@ -10,9 +10,8 @@ from .instances import frontik_test_app
 class TestPlaceholder(unittest.TestCase, json_asserts.JsonTestCaseMixin):
     def test_single_data_set(self):
         f = Future()
-
         f.set_result('first')
-        self.assertRaises(FutureStateException, f.set_result, 'second')
+        self.assertEqual(f.result(), 'first')
 
     def test_callbacks(self):
         result = 'result'

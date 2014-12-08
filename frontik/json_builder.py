@@ -1,9 +1,12 @@
 # coding=utf-8
 
 import json
+import logging
 
 from frontik.future import Future
 from frontik.http_client import RequestResult
+
+future_logger = logging.getLogger('frontik.future')
 
 
 class JsonBuilder(object):
@@ -47,7 +50,11 @@ class JsonBuilder(object):
                 return self.get_error_node(v.exception)
             return self._check_value(v.data)
         elif isinstance(v, Future):
-            return self._check_value(v.result())
+            if v.done():
+                return self._check_value(v.result())
+
+            future_logger.info('unresolved Future in JsonBuilder', exc_info=True)
+            return None
         elif isinstance(v, JsonBuilder):
             return _check_dict(v.to_dict())
 
