@@ -1,6 +1,8 @@
 # coding=utf-8
 
 import copy
+from functools import partial
+import os
 import time
 import weakref
 
@@ -85,12 +87,12 @@ class XmlProducer(object):
             start_time = time.time()
             result = self.transform(copy.deepcopy(self.doc.to_etree_element()),
                                     profile_run=self.handler.debug.debug_mode.profile_xslt)
-            return start_time, str(result), result.xslt_profile
+            return (time.time() - start_time) * 1000, str(result), result.xslt_profile
 
         def success_cb(result):
-            start_time, xml_result, xslt_profile = result
+            timing, xml_result, xslt_profile = result
 
-            self.log.info('applied XSL %s in %.2fms', self.transform_filename, (time.time() - start_time) * 1000)
+            self.log.info('applied XSL %s in %.2fms', self.transform_filename, timing)
 
             if xslt_profile is not None:
                 self.log.debug('XSLT profiling results', extra={'_xslt_profile': xslt_profile.getroot()})
@@ -110,7 +112,19 @@ class XmlProducer(object):
             xsl_line = 'XSLT {0.level_name} in file "{0.filename}", line {0.line}, column {0.column}\n\t{0.message}'
             return '\n'.join(map(xsl_line.format, self.transform.error_log))
 
-        self.executor.add_job(job, self.handler.check_finished(success_cb), self.handler.check_finished(exception_cb))
+        if tornado.options.options.xsl_executor == 'http':
+            self.executor.add_job(
+                self.handler.post_url,
+                {
+                    'xml': self.doc.to_string(),
+                    'xsl': os.path.join(self.handler.config.XSL_root, self.transform_filename)
+                },
+                self.handler.check_finished(success_cb), self.handler.check_finished(exception_cb)
+            )
+        else:
+            self.executor.add_job(
+                job, self.handler.check_finished(success_cb), self.handler.check_finished(exception_cb)
+            )
 
     def _finish_with_xml(self, callback):
         self.log.debug('finishing without XSLT')

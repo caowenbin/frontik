@@ -174,7 +174,7 @@ class RequestLogger(logging.LoggerAdapter):
         self.logger.flush(status_code=status_code, stages=self.stages, method=request_method, uri=request_uri)
 
 
-def bootstrap_logging():
+def configure_logging():
     """This is a replacement for standard Tornado logging configuration."""
 
     root_logger = logging.getLogger()

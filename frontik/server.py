@@ -4,18 +4,22 @@
 import logging
 import sys
 
-import tornado_util.server
 from tornado.options import options
 
 import frontik.app
+from frontik.frontik_logging import configure_logging
+from frontik.launcher import server
 import frontik.options
-from frontik.frontik_logging import bootstrap_logging
 
 log = logging.getLogger('frontik.server')
 
 
-def main(config_file=None):
-    tornado_util.server.bootstrap(config_file=config_file, options_callback=bootstrap_logging)
+def main(config_file=None, port=None, pidfile=None):
+
+    from zmq.eventloop import ioloop
+    ioloop.install()
+
+    server.bootstrap(config_file=config_file, options_callback=configure_logging, pidfile=None)
 
     try:
         if options.app is None:
@@ -29,4 +33,4 @@ def main(config_file=None):
         log.exception('failed to initialize frontik application, quitting')
         sys.exit(1)
 
-    tornado_util.server.main(tornado_app)
+    server.main(tornado_app, port if port is not None else options.port)

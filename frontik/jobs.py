@@ -1,9 +1,11 @@
 # coding=utf-8
 
-import threading
-import Queue
-import logging
 from functools import partial
+import Queue
+import threading
+import time
+import logging
+import zlib
 
 import tornado.options
 from tornado import stack_context
@@ -69,6 +71,39 @@ class ThreadPoolExecutor(object):
             IOLoop.instance().add_callback(partial(exception_cb, e))
 
 
+class HttpExecutor(object):
+    @staticmethod
+    def add_job(fetcher, data, cb, exception_cb):
+        import zmq
+        from zmq.eventloop import ioloop, zmqstream
+
+        def _cb(msg):
+
+            reply = msg[0]
+            stream.close()
+
+            if reply:
+                cb(((time.time() - start_time) * 1000, reply, None))
+
+            # if data is None or response.error:
+            #     exception_cb(ValueError())
+            # else:
+            #     cb(((time.time() - start_time) * 1000, data, None))
+
+        start_time = time.time()
+
+        ctx = zmq.Context.instance()
+        s = ctx.socket(zmq.REQ)
+        s.connect('tcp://127.0.0.1:5555')
+
+        stream = zmqstream.ZMQStream(s)
+        stream.on_recv(_cb)
+
+        # send request to worker
+        # s.send(cPickle.dumps(data))
+        s.send(zlib.compress(data))
+
+
 def get_threadpool_executor():
     global __threadpool_executor
     if __threadpool_executor is None:
@@ -81,5 +116,7 @@ def get_executor(executor_type):
         return get_threadpool_executor()
     elif executor_type == 'ioloop':
         return IOLoopExecutor
+    elif executor_type == 'http':
+        return HttpExecutor
     else:
         raise ValueError('Invalid value for executor_type: "{0}"'.format(executor_type))

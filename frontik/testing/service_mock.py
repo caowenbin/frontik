@@ -31,7 +31,7 @@ import frontik.handler_active_limit
 
 tornado.options.options.stderr_log = True
 tornado.options.options.loglevel = 'debug'
-frontik.frontik_logging.bootstrap_logging()
+frontik.frontik_logging.configure_logging()
 
 
 class HTTPResponseStub(HTTPResponse):
