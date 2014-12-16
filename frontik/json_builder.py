@@ -3,7 +3,8 @@
 import json
 import logging
 
-from frontik.future import Future
+from tornado.concurrent import Future
+
 from frontik.http_client import RequestResult
 
 future_logger = logging.getLogger('frontik.future')
