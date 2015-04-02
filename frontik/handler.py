@@ -498,7 +498,7 @@ class BaseHandler(tornado.web.RequestHandler):
         super(BaseHandler, self).log_exception(typ, value, tb)
         sentry_handler = self.get_sentry_handler()
         if sentry_handler is not None and not isinstance(value, tornado.web.HTTPError):
-            sentry_handler.capture_exception(exc_info=(typ, value, tb))
+            sentry_handler.capture_exception(exc_info=(typ, value, tb), extra_data={'requestId': self.request_id})
 
 
 class PageHandler(BaseHandler):

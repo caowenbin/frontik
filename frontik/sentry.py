@@ -30,13 +30,15 @@ if has_raven:
 
     class SentryHandler(object):
 
-        def __init__(self, sentry_client, request):
+        def __init__(self, sentry_client, request, request_id):
             """
-            :type request: tornado.httpserver.HTTPRequest
             :type sentry_client: frontik.sentry.AsyncSentryClient
+            :type request: tornado.httpserver.HTTPRequest
+            :type request_id: str
             """
             self.sentry_client = sentry_client
             self.request = request
+            self.request_id = request_id
             self.request_extra_data = {}
             self.user_info = {
                 'ip_address': request.remote_ip,
@@ -68,6 +70,7 @@ if has_raven:
             Additional kwargs passed to raven.base.Client#captureException:
             """
             sentry_data = self._collect_sentry_data(extra_data)
+            print '!!!' + sentry_data
             self.sentry_client.captureException(exc_info=exc_info, data=sentry_data, **kwargs)
 
         def capture_message(self, message, extra_data=None, **kwargs):
@@ -94,7 +97,9 @@ if has_raven:
                 # see http://sentry.readthedocs.org/en/latest/developer/interfaces/#sentry.interfaces.user.User
                 'user': self.user_info,
 
-                'extra': {}
+                'extra': {
+                    'requestId': self.request_id
+                }
             }
             if extra_data:
                 data['extra']['extra_data'] = extra_data
