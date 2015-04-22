@@ -8,22 +8,28 @@ from tornado.concurrent import Future
 
 from frontik.http_client import RequestResult
 
+
 future_logger = logging.getLogger('frontik.future')
+logger = logging.getLogger('mazafaka')
 
 
 class Doc(object):
-    __slots__ = ('root_node_name', 'root_node', 'data')
+    __slots__ = ('root_node_name', 'root_node', 'data', 'request_id')
 
-    def __init__(self, root_node_name='doc', root_node=None):
+    def __init__(self, root_node_name='doc', root_node=None, request_id=None):
         self.root_node_name = root_node_name
         self.root_node = root_node
         self.data = []
+        self.request_id = request_id
 
     def put(self, chunk):
         if isinstance(chunk, list):
             self.data.extend(chunk)
         else:
             self.data.append(chunk)
+
+        if self.request_id is not None:
+            logger.error('handler.{} - pagedata: {}'.format(self.request_id, self.data))
 
         return self
 
@@ -38,6 +44,11 @@ class Doc(object):
         return etree.Element('error', **{k: str(v) for k, v in exception.attrs.iteritems()})
 
     def to_etree_element(self):
+        if self.request_id is not None:
+            logger.error('WE ARE GOING TO SERIALIZE, handler.{} - pagedata: {}'.format(
+                self.request_id, self.data)
+            )
+
         if self.root_node is not None:
             if isinstance(self.root_node, etree._Element):
                 # TODO: PIs, comments and entities are also _Elements
@@ -100,6 +111,11 @@ class Doc(object):
             else:
                 res.append(chunk_element)
                 last_element = chunk_element
+
+        if self.request_id is not None:
+            logger.error('handler.{} children of root node in etreeElement: {}'.format(
+                self.request_id, res.getchildren())
+            )
 
         return res
 

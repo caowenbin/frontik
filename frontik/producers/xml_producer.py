@@ -83,6 +83,7 @@ class XmlProducer(object):
 
         def job():
             start_time = time.time()
+
             result = self.transform(copy.deepcopy(self.doc.to_etree_element()),
                                     profile_run=self.handler.debug.debug_mode.profile_xslt)
             return start_time, str(result), result.xslt_profile
@@ -114,9 +115,23 @@ class XmlProducer(object):
 
     def _finish_with_xml(self, callback):
         self.log.debug('finishing without XSLT')
+
+        result = self.doc.to_string()
+
+        doc = self.doc.data
+        if len(doc) > 0:
+            pagedata = doc[0]
+            if getattr(pagedata, 'request_id', None):
+                self.log.error('handler.{} BEFORE XSLT: children of root: {}'.format(
+                    getattr(pagedata, 'request_id', None), pagedata.data)
+                )
+                self.log.error('handler.{}: AND RESULT: >>>{}<<<'.format(getattr(pagedata, 'request_id', None),
+                                                                         result[:1000]))
+
         if self.handler._headers.get('Content-Type') is None:
             self.handler.set_header('Content-Type', 'application/xml; charset=utf-8')
-        callback(self.doc.to_string())
+
+        callback(result)
 
     def xml_from_file(self, filename):
         return self.xml_cache.load(filename, self.log)
