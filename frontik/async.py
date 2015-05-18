@@ -3,6 +3,7 @@
 import time
 import logging
 
+from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 
 default_logger = logging.getLogger('frontik.async')
