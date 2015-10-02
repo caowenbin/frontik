@@ -1,8 +1,9 @@
-# coding: utf-8
+# coding=utf-8
+
 import unittest
 import httplib
 
-from frontik.http_codes import process_status_code
+from frontik.http_errors import process_status_code
 
 
 class ProcessStatusCodeTestCase(unittest.TestCase):

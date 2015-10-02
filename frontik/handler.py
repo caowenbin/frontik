@@ -17,33 +17,13 @@ import frontik.auth
 import frontik.handler_active_limit
 from frontik.handler_debug import PageHandlerDebug
 from frontik.http_client import HttpClient
-import frontik.util
+from frontik import http_errors
 import frontik.producers.json_producer
 import frontik.producers.xml_producer
-from frontik.http_codes import process_status_code
 import frontik.sentry
+import frontik.util
 
-
-class HTTPError(tornado.web.HTTPError):
-    """
-    Extends tornado.web.HTTPError with several keyword-only arguments.
-    Also allow using some extended HTTP codes
-
-    :arg dict headers: Custom HTTP headers to pass along with the error response.
-    :arg string text: Plain text override for error response.
-    :arg etree xml: XML node to be added to `self.doc`. If present, error page will be
-        produced with `application/xml` content type.
-    :arg dict json: JSON dict to be used as error response. If present, error page
-        will be produced with `application/json` content type.
-    """
-    def __init__(self, status_code, log_message=None, *args, **kwargs):
-        headers = kwargs.pop('headers', {})
-        for data in ('text', 'xml', 'json'):
-            setattr(self, data, kwargs.pop(data, None))
-
-        status_code, kwargs['reason'] = process_status_code(status_code, kwargs.get('reason'))
-        super(HTTPError, self).__init__(status_code, log_message, *args, **kwargs)
-        self.headers = headers
+HTTPError = http_errors.HTTPError
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -148,7 +128,7 @@ class BaseHandler(tornado.web.RequestHandler):
             return value.decode('utf-8', 'ignore')
 
     def set_status(self, status_code, reason=None):
-        status_code, reason = process_status_code(status_code, reason)
+        status_code, reason = http_errors.process_status_code(status_code, reason)
         super(BaseHandler, self).set_status(status_code, reason=reason)
 
     @staticmethod
