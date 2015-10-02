@@ -54,7 +54,7 @@ class CurlStringTestCase(unittest.TestCase):
 
 class DebugTestCase(unittest.TestCase):
 
-    DEBUG_BASIC_AUTH = 'Basic {}'.format(base64.encodestring('user:god'))
+    DEBUG_BASIC_AUTH = 'Basic {}'.format(base64.encodestring('user:god').strip())
 
     def test_complex_debug_page(self):
         response = frontik_non_debug.get_page(
@@ -154,10 +154,10 @@ class DebugTestCase(unittest.TestCase):
                       'Basic',
                       'Basic ',
                       'Basic ScrewYou',
-                      'Basic {}'.format(base64.encodestring(':')),
-                      'Basic {}'.format(base64.encodestring('')),
-                      'Basic {}'.format(base64.encodestring('not:pass')),
-                      'BASIC {}'.format(base64.encodestring('user:god'))):
+                      'Basic {}'.format(base64.encodestring(':').strip()),
+                      'Basic {}'.format(base64.encodestring('').strip()),
+                      'Basic {}'.format(base64.encodestring('not:pass').strip()),
+                      'BASIC {}'.format(base64.encodestring('user:god').strip())):
             self.assertDebugResponseCode(page='app/simple_xml?debug',
                                          headers={'Authorization': value},
                                          expected_code=httplib.UNAUTHORIZED)

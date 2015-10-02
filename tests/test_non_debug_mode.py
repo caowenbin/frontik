@@ -17,10 +17,12 @@ class TestNonDebugMode(unittest.TestCase):
 
     def test_basic_auth_fail_on_wrong_pass(self):
         response = frontik_non_debug.get_page(
-            'app/basic_auth', headers={'Authorization': 'Basic {}'.format(base64.encodestring('user:bad'))})
+            'app/basic_auth', headers={'Authorization': 'Basic {}'.format(base64.encodestring('user:bad').strip())}
+        )
         self.assertEqual(response.status_code, 401)
 
     def test_basic_auth_pass(self):
         response = frontik_non_debug.get_page(
-            'app/basic_auth', headers={'Authorization': 'Basic {}'.format(base64.encodestring('user:god'))})
+            'app/basic_auth', headers={'Authorization': 'Basic {}'.format(base64.encodestring('user:god').strip())}
+        )
         self.assertEqual(response.status_code, 200)
