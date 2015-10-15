@@ -109,7 +109,7 @@
         <xsl:variable name="highlight">
             <xsl:if test="$highlight-text != '' and contains(@msg, $highlight-text)">entry__head_highlight</xsl:if>
         </xsl:variable>
-            
+
         <div class="entry">
             <div class="entry__head {$highlight} {@levelname}">
                 <span class="entry__head__message">
@@ -216,7 +216,7 @@
         <xsl:variable name="timebar-offset-time">
             <xsl:value-of select="1000 * (request/start_time/text() - /log/@started)"/>
         </xsl:variable>
-        
+
         <xsl:variable name="timebar-offset">
             <xsl:value-of select="format-number($timebar-offset-time div $total-time, '##.##%')"/>
         </xsl:variable>
@@ -275,12 +275,8 @@
                         <xsl:value-of select="$timebar-details-len"/>
                     </div>
                 </div>
-
-                <xsl:apply-templates select="request" mode="copy-as-curl"/>
-                <xsl:apply-templates select="debug"/>
-                <xsl:apply-templates select="request"/>
-                <xsl:apply-templates select="response"/>
-                <xsl:apply-templates select="exception"/>
+                #THISISTEST
+                <xsl:apply-templates select="log" mode="debug-log" />
             </div>
         </div>
     </xsl:template>
