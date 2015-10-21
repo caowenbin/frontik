@@ -108,11 +108,6 @@ class BaseHandler(tornado.web.RequestHandler):
         else:
             self.apply_postprocessor = True
 
-        if tornado.options.options.long_request_timeout:
-            # add long requests timeout
-            self.finish_timeout_handle = IOLoop.instance().add_timeout(
-                time.time() + tornado.options.options.long_request_timeout, self.__handle_long_request)
-
         self.finish_group = AsyncGroup(self.check_finished(self._finish_page_cb), name='finish', logger=self.log)
         self._prepared = True
 
@@ -275,11 +270,6 @@ class BaseHandler(tornado.web.RequestHandler):
         else:
             self.log.warning('trying to finish already finished page, probably bug in a workflow, ignoring')
 
-    def __handle_long_request(self):
-        self.log.warning("long request detected (uri: {0})".format(self.request.uri))
-        if tornado.options.options.kill_long_requests:
-            self.send_error()
-
     def on_connection_close(self):
         self.finish_group.abort()
         self.cleanup()
@@ -358,9 +348,6 @@ class BaseHandler(tornado.web.RequestHandler):
         return super(BaseHandler, self).write_error(status_code, **kwargs)
 
     def cleanup(self):
-        if hasattr(self, 'finish_timeout_handle'):
-            IOLoop.instance().remove_timeout(self.finish_timeout_handle)
-
         if hasattr(self, 'active_limit'):
             self.active_limit.release()
 
