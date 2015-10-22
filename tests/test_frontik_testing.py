@@ -8,31 +8,32 @@ import lxml.etree
 from tornado.httpclient import HTTPRequest
 
 from frontik.async import AsyncGroup
-from frontik.handler import HTTPError
+from frontik.handler import HTTPError, PageHandler
 from frontik.testing.service_mock import route, route_less_or_equal_than, EmptyEnvironment
 from frontik.testing.pages import Page
 
 
-def _function_under_test(handler):
-    def finished():
-        res = lxml.etree.Element('result')
-        res.text = str(handler.result)
-        handler.doc.put(res)
-        handler.set_header('X-Foo', 'Bar')
-        handler.set_status(400)
+class TestHandler(PageHandler):
+    def get_page(self):
+        def finished():
+            res = lxml.etree.Element('result')
+            res.text = str(self.result)
+            self.doc.put(res)
+            self.set_header('X-Foo', 'Bar')
+            self.set_status(400)
 
-    handler.result = 0
-    ag = AsyncGroup(finished)
+        self.result = 0
+        ag = AsyncGroup(finished)
 
-    def accumulate(xml, response):
-        if response.code >= 400:
-            raise HTTPError(503, 'remote server returned error with code {}'.format(response.code))
-        if xml is None:
-            raise HTTPError(503)
-        handler.result += int(xml.findtext('a'))
+        def accumulate(xml, response):
+            if response.code >= 400:
+                raise HTTPError(503, 'remote server returned error with code {}'.format(response.code))
+            if xml is None:
+                raise HTTPError(503)
+            self.result += int(xml.findtext('a'))
 
-    handler.get_url(handler.config.serviceHost + 'vacancy/1234', callback=ag.add(accumulate))
-    handler.get_url(handler.config.serviceHost + 'employer/1234', callback=ag.add(accumulate))
+        self.get_url(self.config.serviceHost + 'vacancy/1234', callback=ag.add(accumulate))
+        self.get_url(self.config.serviceHost + 'employer/1234', callback=ag.add(accumulate))
 
 
 class TestServiceMock(unittest.TestCase):
@@ -63,7 +64,11 @@ class TestServiceMock(unittest.TestCase):
         def check_config(handler):
             self.assertTrue(handler.config.config_param)
 
-        EmptyEnvironment().configure(config_param=True).call_function(check_config)
+        class ConfigTestHandler(PageHandler):
+            def get_page(self):
+                check_config(self)
+
+        EmptyEnvironment().configure(config_param=True).call_get(ConfigTestHandler)
 
     def test_routing_by_url(self):
         test_handler = '<xml></xml>'
@@ -82,7 +87,7 @@ class TestServiceMock(unittest.TestCase):
                 '/vacancy/1234': (200, '<b><a>1</a></b>'),
                 '/employer/1234': '<b><a>2</a></b>'
             }
-        ).call_function(_function_under_test)
+        ).call_get(TestHandler)
 
         self.assertEqual(result.get_xml_response().findtext('result'), '3')
         self.assertEqual(result.get_status(), 400)
@@ -97,13 +102,15 @@ class TestServiceMock(unittest.TestCase):
         self.assertEqual(result.get_json_response()['Hello'], 'world')
 
     def test_exception(self):
-        def _test_function(handler):
-            def _inner():
-                raise HTTPError(500, 'fail')
-            _inner()
+        class ExceptionTestHandler(PageHandler):
+            def get_page(self):
+                def _inner():
+                    raise HTTPError(500, 'fail')
+
+                _inner()
 
         try:
-            EmptyEnvironment().call_function(_test_function)
+            EmptyEnvironment().call_get(ExceptionTestHandler)
         except Exception as e:
             self.assertEqual(e.status_code, 500)
             self.assertEqual(e.log_message, 'fail')

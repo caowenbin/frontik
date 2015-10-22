@@ -35,7 +35,7 @@ frontik.frontik_logging.bootstrap_logging()
 
 
 class HTTPResponseStub(HTTPResponse):
-    def __init__(self, request=None, code=200, headers=None, buffer=None,
+    def __init__(self, request=None, code=200, headers=None, buffer='',
                  effective_url='stub', error=None, request_time=1,
                  time_info=None):
 
@@ -203,47 +203,30 @@ class EmptyEnvironment(object):
         self._request.body = body
         return self
 
-    # deprecated, make default when raise_exceptions is removed
-    def call_with_exception_handler(self, method, *args, **kwargs):
-        return self.call_function(method, raise_exceptions=False, *args, **kwargs)
+    def call_get(self, page_handler, raise_exceptions=True):
+        return self._call_method('GET', page_handler, raise_exceptions)
 
-    def call_get(self, page_handler):
-        return self.call_function(page_handler.get_page)
+    def call_post(self, page_handler, raise_exceptions=True):
+        return self._call_method('POST', page_handler, raise_exceptions)
 
-    def call_post(self, page_handler):
-        return self.call_function(page_handler.post_page)
+    def call_put(self, page_handler, raise_exceptions=True):
+        return self._call_method('PUT', page_handler, raise_exceptions)
 
-    def call_put(self, page_handler):
-        return self.call_function(page_handler.put_page)
+    def call_delete(self, page_handler, raise_exceptions=True):
+        return self._call_method('DELETE', page_handler, raise_exceptions)
 
-    def call_delete(self, page_handler):
-        return self.call_function(page_handler.delete_page)
-
-    def call_function(self, method, raise_exceptions=True, *args, **kwargs):
-        if hasattr(method, 'im_class'):
-            handler_class = type('TestPage', (method.im_class,), {})
-        else:
-            handler_class = type('TestPage', (frontik.handler.PageHandler,), {})
+    def _call_method(self, method, handler_class, raise_exceptions, *args, **kwargs):
+        self._request.method = method
 
         # Create application with the only route — handler_class
-        application = application_mock([('', handler_class)], self._config)(**{
-            'app': 'frontik.testing',
-            'app_root_url': '/',
-        })
+        application = application_mock([('', handler_class)], self._config)(
+            app='frontik.testing',
+            app_root_url='/'
+        )
 
         # Mock methods
+        application.curl_http_client.fetch_impl = self._fetch_mock
 
-        def fetch(request, callback, **kwargs):
-            IOLoop.instance().add_callback(partial(self._fetch_mock, request, callback, **kwargs))
-
-        application.curl_http_client.fetch = fetch
-
-        def wrapped_method(handler):
-            method(handler, *args, **kwargs)
-
-        handler_class.get_page = wrapped_method
-
-        # raise_exceptions kwarg is deprecated
         if raise_exceptions:
             exceptions = []
             old_handle_request_exception = handler_class._handle_request_exception
@@ -272,14 +255,14 @@ class EmptyEnvironment(object):
 
         return TestResult(self._config, self._request, self._handler, self._response_text)
 
-    def _fetch_mock(self, request, callback, **kwargs):
+    def _fetch_mock(self, request, callback):
         self.log.debug('trying to route ' + request.url)
 
         try:
             result = self.route_request(request)
-        except NotImplementedError as e:
-            self.log.error('request to missing service')
-            raise e
+        except NotImplementedError:
+            self.log.error('request to missing service, returning 599')
+            result = HTTPResponseStub(request, code=599, effective_url=request.url)
 
         callback(result)
 

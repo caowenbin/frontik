@@ -1,8 +1,8 @@
-# _*_ coding: utf-8 _*_
+# coding=utf-8
+
 import unittest
 import socket
 import httplib
-import sys
 
 from . import instances
 
@@ -23,8 +23,5 @@ class TestingInfrastructureTestCase(unittest.TestCase):
         self.assertTrue(success, 'Unable to bind 127.0.0.1 on ports 9000-9999')
 
     def test_load_page_from_test_instances(self):
-        for instance in (instances.frontik_test_app,
-                         instances.frontik_non_debug,
-                         instances.frontik_re_app):
-            sys.stderr.write('Check test instance for app "{}"\n'.format(instance.app))
+        for instance in (instances.frontik_test_app, instances.frontik_non_debug, instances.frontik_re_app):
             self.assertEquals(instance.get_page('status').status_code, httplib.OK)
