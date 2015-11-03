@@ -15,10 +15,10 @@ from tornado.options import options
 
 from frontik import frontik_logging
 from frontik.globals import global_stats
+from frontik.handler import ErrorHandler
+import frontik.loggers
 import frontik.producers.json_producer
 import frontik.producers.xml_producer
-from frontik.handler import ErrorHandler
-import frontik.sentry
 from frontik.util import make_get_request
 
 app_logger = logging.getLogger('frontik.app')
@@ -219,22 +219,15 @@ class FrontikApplication(tornado.web.Application):
             (r'{}.*'.format(settings.get('app_root_url')), app_dispatcher),
         ], **tornado_settings)
 
+        self.settings = settings
         self.config = self.application_config()
         self.app = settings.get('app')
         self.xml = frontik.producers.xml_producer.ApplicationXMLGlobals(self.config)
         self.json = frontik.producers.json_producer.ApplicationJsonGlobals(self.config)
         self.curl_http_client = tornado.curl_httpclient.CurlAsyncHTTPClient(max_clients=200)
         self.dispatcher = RegexpDispatcher(self.application_urls(), self.app)
-        self.sentry_client = self._build_sentry_client(settings)
 
-    def _build_sentry_client(self, settings):
-        dsn = settings.get('sentry_dsn')
-        if not dsn:
-            return
-        if not frontik.sentry.has_raven:
-            app_logger.warning('sentry_dsn set but raven not avalaible')
-            return
-        return frontik.sentry.AsyncSentryClient(dsn=dsn, http_client=self.curl_http_client)
+        frontik.loggers.bootstrap_all_loggers(self)
 
     def application_urls(self):
         return [

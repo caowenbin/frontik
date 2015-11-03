@@ -1,6 +1,11 @@
-# coding: utf-8
+# coding=utf-8
+
+import logging
+
 from tornado.httpclient import AsyncHTTPClient
 from tornado.options import options
+
+sentry_logger = logging.getLogger('frontik.loggers.sentry')
 
 try:
     from raven.contrib.tornado import AsyncSentryClient as OriginalAsyncSentryClient
@@ -105,3 +110,15 @@ if has_raven:
 else:
     AsyncSentryClient = None
     SentryHandler = None
+
+
+def bootstrap_logger(application):
+    dsn = application.settings.get('sentry_dsn')
+    if not dsn:
+        return
+
+    if not has_raven:
+        sentry_logger.warning('sentry_dsn set but raven not avalaible')
+        return
+
+    application.sentry_client = AsyncSentryClient(dsn=dsn, http_client=application.curl_http_client)
