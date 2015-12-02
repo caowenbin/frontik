@@ -6,6 +6,12 @@ from .instances import frontik_test_app
 
 
 class TestHttpError(unittest.TestCase):
+    def test_init_exception(self):
+        pass
+
+    def test_init_httperror(self):
+        pass
+
     def test_raise_200(self):
         response = frontik_test_app.get_page('http_error')
         self.assertEqual(response.status_code, 200)
