@@ -14,6 +14,9 @@ class Page(PageHandler):
     def post_page(self):
         raise HTTPError('HTTPError for Sentry')
 
+    def put_page(self):
+        self.get_sentry_logger().capture_message('Message for Sentry')
+
     def write_error(self, status_code=500, **kwargs):
         # delay page finish to make sure that sentry mock got the exception
         self.add_timeout(IOLoop.instance().time() + 1.0, partial(super(Page, self).write_error, status_code, **kwargs))
