@@ -28,6 +28,21 @@ class TestSentry(unittest.TestCase):
         else:
             self.fail('Exception not sent to Sentry')
 
+    def test_sentry_message(self):
+        frontik_test_app.get_page('api/sentry/store', method=requests.delete)
+        frontik_test_app.get_page('sentry_error', method=requests.put)
+
+        for exception in self._iter_sentry_messages():
+            if exception['message'] == 'Message for Sentry':
+                self.assertEqual(logging.ERROR, exception['level'])
+                self.assertEqual('PUT', exception['request']['method'])
+                self.assertIn('/sentry_error', exception['request']['url'])
+                break
+            else:
+                self.fail(exception)
+        else:
+            self.fail('Message not sent to Sentry')
+
     def test_sentry_http_error(self):
         frontik_test_app.get_page('api/sentry/store', method=requests.delete)
         frontik_test_app.get_page('sentry_error', method=requests.post)
