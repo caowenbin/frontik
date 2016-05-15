@@ -4,13 +4,86 @@ import unittest
 
 from lxml import etree
 
+from frontik.compat import unicode_type
 from frontik.testing import xml_asserts
-from . import py3_skip
 
 
 class TestXmlResponseMixin(unittest.TestCase, xml_asserts.XmlTestCaseMixin):
+    def test_assertXmlEqual_fail_custom_message(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a/>', '<b/>', msg='Custom message')
 
-    TREE1 = '''
+        self.assertEqual(unicode_type(e.exception), u'Custom message — Tags do not match: /a != /b')
+
+    def test_assertXmlEqual_different_tag_names(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a/>', '<b/>')
+
+        self.assertEqual(unicode_type(e.exception), u'XML documents are not equal — Tags do not match: /a != /b')
+
+    def test_assertXmlEqual_missing_attributes(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a x="1" y="2"/>', '<a y="2"/>')
+
+        self.assertEqual(
+            unicode_type(e.exception), u'XML documents are not equal — Second xml misses attributes: /a/(x)'
+        )
+
+    def test_assertXmlEqual_added_attributes(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a y="2"/>', '<a x="1" y="2"/>')
+
+        self.assertEqual(
+            unicode_type(e.exception),
+            u'XML documents are not equal — Second xml has additional attributes: /a/(x)'
+        )
+
+    def test_assertXmlEqual_different_attribute_values(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a x="1" y="2"/>', '<a x="абв" y="2"/>')
+
+        self.assertEqual(
+            unicode_type(e.exception),
+            u"XML documents are not equal — Attribute values are not equal: /a/x['1' != 'абв']"
+        )
+
+    def test_assertXmlEqual_different_tag_text(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a>123</a>', '<a>абв</a>')
+
+        self.assertEqual(
+            unicode_type(e.exception), u"XML documents are not equal — Tags text differs: /a['123' != 'абв']"
+        )
+
+    def test_assertXmlEqual_different_child_tag_tail(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a><b/>123</a>', '<a><b/>абв</a>')
+
+        self.assertEqual(
+            unicode_type(e.exception), u"XML documents are not equal — No equal child found in second xml: /a/b"
+        )
+
+    def test_assertXmlEqual_different_children(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a><b/><c/></a>', '<a><b/></a>')
+
+        self.assertEqual(
+            unicode_type(e.exception),
+            u'XML documents are not equal — Children are not equal: /a[2 children != 1 children]'
+        )
+
+    def test_assertXmlEqual_different_children_order(self):
+        self.assertXmlEqual('<a><b/><c/></a>', '<a><c/><b/></a>')
+
+    def test_assertXmlEqual_different_children_order_fail(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlEqual('<a><b/><c/></a>', '<a><c/><b/></a>', check_tags_order=True)
+
+        self.assertEqual(
+            unicode_type(e.exception), u'XML documents are not equal — Tags do not match: /a/b != /a/c'
+        )
+
+    TREE = '''
         <elem start="17" end="18">
             <zAtrib/>
             <aAtrib>
@@ -20,41 +93,12 @@ class TestXmlResponseMixin(unittest.TestCase, xml_asserts.XmlTestCaseMixin):
         </elem>
         '''.strip()
 
-    TREE2 = '''
-        <elem end="18" start="17" >
-            <aAtrib>
-                <bAtrib b="2" a="1"/>
-                <cAtrib/>
-            </aAtrib>
-            <zAtrib/>
-        </elem>
-        '''.strip()
+    def test_assertXmlEqual_absolute_equal(self):
+        self.assertXmlEqual(self.TREE, self.TREE)
+        self.assertXmlEqual(etree.fromstring(self.TREE), self.TREE)
 
-    @py3_skip
-    def test_assertXmlEqual_abs_equals(self):
-        try:
-            self.assertXmlEqual(self.TREE1, self.TREE1)
-            self.assertXmlEqual(etree.fromstring(self.TREE1), etree.fromstring(self.TREE1))
-        except self.failureException as e:
-            self.fail('XML should be absolute equals (Reported error: "{}")'.format(e))
-
-    @py3_skip
-    def test_assertXmlEqual_with_strings(self):
-        try:
-            self.assertXmlEqual(self.TREE1, self.TREE2)
-        except self.failureException as e:
-            self.fail('XML should be almost equals (Reported error: "{}")'.format(e))
-
-    @py3_skip
-    def test_assertXmlEqual_with_tree(self):
-        try:
-            self.assertXmlEqual(etree.fromstring(self.TREE1), etree.fromstring(self.TREE2))
-        except self.failureException as e:
-            self.fail('XML should be almost equals (Reported error: "{}")'.format(e))
-
-    @py3_skip
-    def test_assertXmlEqual_same_tags_order(self):
-        x1_str = '''
+    def test_assertXmlEqual(self):
+        tree1 = '''
             <elem>
                 <a/>
                 <a>
@@ -69,7 +113,7 @@ class TestXmlResponseMixin(unittest.TestCase, xml_asserts.XmlTestCaseMixin):
             </elem>
             '''.strip()
 
-        x2_str = '''
+        tree2 = '''
             <elem>
                 <a>
                     <c/>
@@ -83,40 +127,45 @@ class TestXmlResponseMixin(unittest.TestCase, xml_asserts.XmlTestCaseMixin):
                 <a/>
             </elem>
             '''.strip()
-        try:
-            self.assertXmlEqual(x1_str, x2_str)
-        except self.failureException as e:
-            self.fail('XML should be almost equals (Reported error: "{}")'.format(e))
 
-    @py3_skip
-    def test_assertXmlCompatible_abs_equals(self):
-        try:
-            self.assertXmlCompatible(self.TREE1, self.TREE1)
-        except self.failureException as e:
-            self.fail('XML should be absolute equals (Reported error: "{}")'.format(e))
+        self.assertXmlEqual(tree1, tree2)
+        self.assertXmlEqual(etree.fromstring(tree1), tree2)
 
-    @py3_skip
-    def test_assertXmlCompatible_with_extra_property(self):
-        old = '''
+    def test_assertXmlEqual_comments(self):
+        self.assertXmlEqual(
+            b'<?xml version="1.0" encoding="utf-8"?><root><!--a--><!--b--><!--\xd0\xb0\xd0\xb1\xd0\xb2--></root>',
+            b'<?xml version="1.0" encoding="utf-8"?><root><!--\xd0\xb0\xd0\xb1\xd0\xb2--><!--b--><!--a--></root>'
+        )
+
+    def test_assertXmlCompatible_absolute_equals(self):
+        self.assertXmlCompatible(self.TREE, self.TREE)
+
+    def test_assertXmlCompatible_fail_custom_message(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlCompatible('<a/>', '<b/>', msg='Custom message')
+
+        self.assertEqual(unicode_type(e.exception), u'Custom message — Tags do not match: /a != /b')
+
+    def test_assertXmlCompatible_added_attributes(self):
+        tree1 = '''
             <elem>
                 <a answer="42" douglas="adams"/>
             </elem>
             '''.strip()
 
-        # add: elem[@prop], a[@new], a[@new2]
-        new = '''
+        tree2 = '''
             <elem prop="some">
                 <a answer="42" new2="no" douglas="adams" new="yes"/>
             </elem>
             '''.strip()
-        try:
-            self.assertXmlCompatible(old, new)
-        except self.failureException as e:
-            self.fail('XML should be compatible (Reported error: "{}")'.format(e))
 
-    @py3_skip
-    def test_assertXmlCompatible_with_extra_tags(self):
-        old = '''
+        self.assertXmlCompatible(tree1, tree2)
+
+    def test_assertXmlCompatible_no_tags_in_first_xml(self):
+        self.assertXmlCompatible('<a/>', '<a><x/><y/></a>')
+
+    def test_assertXmlCompatible_extra_tags(self):
+        tree1 = '''
             <elem>
                 <z prop="1"/>
                 <a>
@@ -130,9 +179,7 @@ class TestXmlResponseMixin(unittest.TestCase, xml_asserts.XmlTestCaseMixin):
             </elem>
             '''.strip()
 
-        # add extra tags: yy, dd, txt, aa, new
-        # reoder: elem/*, elem/a/*
-        new = '''
+        tree2 = '''
             <elem>
                 <a disabled="true"/>
                 <a>
@@ -152,61 +199,83 @@ class TestXmlResponseMixin(unittest.TestCase, xml_asserts.XmlTestCaseMixin):
                 <yy/>
             </elem>
             '''.strip()
-        try:
-            self.assertXmlCompatible(old, new)
-        except self.failureException as e:
-            self.fail('XML should be compatible (Reported error: "{}")'.format(e))
 
-    @py3_skip
-    def test_assertXmlCompatible_incompatible_property(self):
-        old = '''
+        self.assertXmlCompatible(tree1, tree2)
+
+    def test_assertXmlCompatible_missing_children(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlCompatible('<a><b/><c/></a>', '<a><b/></a>')
+
+        self.assertEqual(
+            unicode_type(e.exception),
+            u'XML documents are not compatible — Second xml /a contains less children (1 < 2)'
+        )
+
+    def test_assertXmlCompatible_different_children(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlCompatible('<a><b/><c/></a>', '<a><d/><b/></a>')
+
+        self.assertEqual(
+            unicode_type(e.exception),
+            u'XML documents are not compatible — Second xml has no compatible child for /a/c'
+        )
+
+    def test_assertXmlCompatible_missing_children_recursive(self):
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlCompatible('<a><b><c/><d/></b></a>', '<a><b><c/></b></a>')
+
+        self.assertEqual(
+            unicode_type(e.exception),
+            u'XML documents are not compatible — Second xml has no compatible child for /a/b'
+        )
+
+    def test_assertXmlCompatible_incompatible_attributes(self):
+        tree1 = '''
             <elem>
                 <a answer="42" douglas="adams"/>
             </elem>
             '''.strip()
 
-        # remove: a[@answer], add a[@extra]
-        new = '''
+        tree2 = '''
             <elem>
                 <a douglas="adams" extra="extra"/>
             </elem>
             '''.strip()
 
-        self.assertRaises(self.failureException, self.assertXmlCompatible, old, new)
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlCompatible(tree1, tree2)
 
-    @py3_skip
-    def test_assertXmlCompatible_incompatible_less_tags(self):
-        old = '''
-            <elem>
-                <a>
-                    <b/>
-                    <c/>
-                </a>
-                <m/>
-                <z/>
-            </elem>
-            '''.strip()
+        self.assertEqual(
+            unicode_type(e.exception),
+            u'XML documents are not compatible — Second xml has no compatible child for /elem/a'
+        )
 
-        # remove: z
-        # reorder: m<->a
-        new = '''
-            <elem>
-                <m/>
-                <a>
-                    <b/>
-                    <c/>
-                </a>
-            </elem>
-            '''.strip()
+    def test_assertXmlCompatible_not_enough_compatible(self):
+        tree1 = '''
+           <root>
+               <a x="1"/>
+               <a y="1"/>
+               <a z="1"><c/></a>
+           </root>
+        '''
 
-        try:
-            self.assertXmlCompatible(old, new)
-        except self.failureException as e:
-            self.assertIn('Children length differs', str(e))
+        tree2 = '''
+           <root>
+               <a x="1" z="1"><b/></a>
+               <a y="1"/>
+               <a z="1"><b/></a>
+           </root>
+        '''
 
-    @py3_skip
+        with self.assertRaises(AssertionError) as e:
+            self.assertXmlCompatible(tree1, tree2)
+
+        self.assertIn(
+            u'XML documents are not compatible — Second xml has no compatible child for /root/a',
+            unicode_type(e.exception)
+        )
+
     def test_assertXmlEqual_with_similar_children(self):
         xml_string = ('<a><b><c><d>1</d><e>2</e></c><f><g>3</g></f></b><h>4</h><i><l>5</l><m>6</m></i>'
                       '<i><l>7</l><m>8</m></i></a>')
-        xml = etree.fromstring(xml_string)
-        self.assertXmlEqual(xml_string, xml)
+        self.assertXmlEqual(xml_string, etree.fromstring(xml_string))
