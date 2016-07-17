@@ -112,16 +112,16 @@ class FrontikTestInstance(object):
 
         return method(url, **kwargs)
 
-    def get_page_xml(self, page, notpl=False):
-        content = utf8(self.get_page(page, notpl).content)
+    def get_page_xml(self, page, notpl=False, **kwargs):
+        content = utf8(self.get_page(page, notpl, **kwargs).content)
 
         try:
             return etree.fromstring(content)
         except Exception as e:
             raise Exception('failed to parse xml ({}): "{}"'.format(e, content))
 
-    def get_page_json(self, page, notpl=False):
-        content = self.get_page_text(page, notpl)
+    def get_page_json(self, page, notpl=False, **kwargs):
+        content = self.get_page_text(page, notpl, **kwargs)
 
         try:
             return json.loads(content)

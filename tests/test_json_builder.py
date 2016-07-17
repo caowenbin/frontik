@@ -7,7 +7,7 @@ import unittest
 from tornado.concurrent import Future
 
 from frontik.json_builder import JsonBuilder
-from frontik.http_client import RequestResult, FailedRequestException
+from frontik.http_client import RequestResult
 
 
 class TestJsonBuilder(unittest.TestCase):
@@ -111,8 +111,7 @@ class TestJsonBuilder(unittest.TestCase):
     def test_failed_future(self):
         j = JsonBuilder()
         f = Future()
-        result = RequestResult()
-        result.set_exception(FailedRequestException(reason='error', code='code'))
+        result = RequestResult.from_error(reason='error', code='code')
         f.set_result(result)
         j.put(f)
 
@@ -143,8 +142,7 @@ class TestJsonBuilder(unittest.TestCase):
         j.put(f1)
 
         self.assertEqual(j.to_string(), """{"nested": null}""")
-        result = RequestResult()
-        result.set_exception(FailedRequestException(reason='error', code='code'))
+        result = RequestResult.from_error(reason='error', code='code')
 
         f2.set_result(
             {'a': result}

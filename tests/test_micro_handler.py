@@ -32,3 +32,7 @@ class TestMicroHandler(unittest.TestCase):
     def test_invalid_return_value(self):
         response = frontik_test_app.get_page('micro_handler?invalid_return_value=true', method=requests.delete)
         self.assertEqual(response.status_code, 500)
+
+    def test_parse_error(self):
+        response = frontik_test_app.get_page('http_client/micro_handler_parse_error')
+        self.assertEqual(response.status_code, 400)

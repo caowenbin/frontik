@@ -15,7 +15,7 @@ class TestHttpClient(unittest.TestCase):
 
     @py3_skip
     def test_post_url_mfd(self):
-        response = frontik_test_app.get_page('http_client/post_url')
+        response = frontik_test_app.get_page('http_client/post_mfd')
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(etree.fromstring(response.content.encode('utf-8')).text)
 

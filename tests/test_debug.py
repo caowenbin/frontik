@@ -88,21 +88,21 @@ class DebugTestCase(unittest.TestCase):
         for msg in assert_not_found:
             self.assertNotIn(msg, response_content)
 
-    def assertDebugResponseCode(self, page, expected_code, headers=None):
+    def _assert_debug_response_code(self, page, expected_code, headers=None):
         response = frontik_non_debug.get_page(page, headers=headers)
         self.assertEqual(response.status_code, expected_code)
         return response
 
     def test_debug_by_basic_auth(self):
         for param in ('debug', 'noxsl', 'notpl'):
-            response = self.assertDebugResponseCode(page='app/simple_xml?{}'.format(param),
-                                                    expected_code=http_codes.UNAUTHORIZED)
+            response = self._assert_debug_response_code(page='app/simple_xml?{}'.format(param),
+                                                        expected_code=http_codes.UNAUTHORIZED)
             self.assertIn('Www-Authenticate', response.headers)
             self.assertRegexpMatches(response.headers['Www-Authenticate'], 'Basic realm="[^"]+"')
 
-            self.assertDebugResponseCode(page='app/simple_xml?{}'.format(param),
-                                         headers={'Authorization': self.DEBUG_BASIC_AUTH},
-                                         expected_code=http_codes.OK)
+            self._assert_debug_response_code(page='app/simple_xml?{}'.format(param),
+                                             headers={'Authorization': self.DEBUG_BASIC_AUTH},
+                                             expected_code=http_codes.OK)
 
     def test_debug_by_basic_auth_with_invalid_header(self):
         invalid_headers = (
@@ -118,27 +118,29 @@ class DebugTestCase(unittest.TestCase):
         )
 
         for h in invalid_headers:
-            self.assertDebugResponseCode('app/simple_xml?debug', http_codes.UNAUTHORIZED, headers={'Authorization': h})
+            self._assert_debug_response_code(
+                'app/simple_xml?debug', http_codes.UNAUTHORIZED, headers={'Authorization': h}
+            )
 
     def test_debug_by_header(self):
         for param in ('debug', 'noxsl', 'notpl'):
-            response = self.assertDebugResponseCode('app/simple_xml?{}'.format(param), http_codes.UNAUTHORIZED)
+            response = self._assert_debug_response_code('app/simple_xml?{}'.format(param), http_codes.UNAUTHORIZED)
 
             self.assertIn('Www-Authenticate', response.headers)
             self.assertEqual('Basic realm="Secure Area"', response.headers['Www-Authenticate'])
 
-            self.assertDebugResponseCode(
+            self._assert_debug_response_code(
                 'app/simple_xml?{}'.format(param), http_codes.OK, headers={'Frontik-Debug-Auth': 'user:god'}
             )
 
-            self.assertDebugResponseCode(
+            self._assert_debug_response_code(
                 'app/simple_xml?{}'.format(param), http_codes.OK,
                 headers={'Frontik-Debug-Auth': 'user:god', 'Authorization': 'Basic bad'}
             )
 
     def test_debug_by_header_with_wrong_header(self):
         for value in ('', 'not:pass', 'user: god', self.DEBUG_BASIC_AUTH):
-            response = self.assertDebugResponseCode(
+            response = self._assert_debug_response_code(
                 'app/simple_xml?debug', http_codes.UNAUTHORIZED, headers={'Frontik-Debug-Auth': value}
             )
 
@@ -147,11 +149,18 @@ class DebugTestCase(unittest.TestCase):
 
     def test_debug_by_cookie(self):
         for param in ('debug', 'noxsl', 'notpl'):
-            self.assertDebugResponseCode(
+            self._assert_debug_response_code(
                 'app/simple_xml', http_codes.UNAUTHORIZED, headers={'Cookie': '{}=true'.format(param)}
             )
 
-            self.assertDebugResponseCode(
+            self._assert_debug_response_code(
                 'app/simple_xml', http_codes.OK,
                 headers={'Cookie': '{}=true;'.format(param), 'Authorization': self.DEBUG_BASIC_AUTH}
             )
+
+    def test_debug_must_not_affect_http_responses(self):
+        debug_xml = frontik_non_debug.get_page_xml(
+            'http_client/post_simple?debug&noxsl', headers={'Authorization': self.DEBUG_BASIC_AUTH}
+        )
+
+        self.assertEqual(debug_xml.findtext('original-response/code'), '200')

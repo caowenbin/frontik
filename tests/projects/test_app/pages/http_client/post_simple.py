@@ -7,6 +7,7 @@ class Page(frontik.handler.PageHandler):
     def get_page(self):
 
         def callback_post(element, response):
+            assert element.text == '42'
             self.doc.put(element.text)
 
         self.post_url(self.request.host + self.request.path, callback=callback_post)

@@ -7,7 +7,7 @@ from lxml_asserts.testcase import LxmlTestCaseMixin
 from tornado.concurrent import Future
 
 from frontik.doc import Doc
-from frontik.http_client import RequestResult, FailedRequestException
+from frontik.http_client import RequestResult
 
 
 class TestDoc(unittest.TestCase, LxmlTestCaseMixin):
@@ -55,8 +55,7 @@ class TestDoc(unittest.TestCase, LxmlTestCaseMixin):
     def test_failed_future(self):
         d = Doc('a')
         f = Future()
-        result = RequestResult()
-        result.set_exception(FailedRequestException(reason='error', code='code'))
+        result = RequestResult.from_error(reason='error', code='code')
         f.set_result(result)
         d.put(f)
 
