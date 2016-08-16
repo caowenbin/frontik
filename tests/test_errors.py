@@ -2,7 +2,7 @@
 
 import unittest
 
-from .instances import frontik_test_app
+from .instances import frontik_re_app, frontik_test_app
 
 
 class TestHttpError(unittest.TestCase):
@@ -55,8 +55,16 @@ class TestHttpError(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.content, b'{"reason": "bad argument"}')
 
-    def test_http_error_in_prepare(self):
-        response = frontik_test_app.get_page('http_error_in_prepare')
+    def test_exception_on_prepare(self):
+        self.assertEqual(frontik_re_app.get_page('exception_on_prepare').status_code, 500)
+        self.assertEqual(frontik_re_app.get_page('exception_on_prepare_rewrite').status_code, 500)
+
+    def test_httperror_on_prepare(self):
+        response = frontik_re_app.get_page('httperror_on_prepare')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.headers['X-Foo'], 'Bar')
+
+        response = frontik_re_app.get_page('httperror_on_prepare_rewrite')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.headers['X-Foo'], 'Bar')
 
