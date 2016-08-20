@@ -40,6 +40,7 @@ class Page(frontik.handler.PageHandler):
             self.set_xsl('simple.xsl')
 
         self.log.debug('testing xml output', extra={'_xml': E.root(E.child1(param=u'тест'), E.child2(u'тест'))})
+        self.log.debug('SELECT x FROM y JOIN z USING(a);', extra={'_labels': ['SQL'], 'duration': 10})
         self.log.debug('testing utf-8 text output', extra={'_text': 'some\nmultiline\nюникод\ndebug'})
         self.log.debug('testing unicode text output', extra={'_text': u'some\nmultiline\nюникод\ndebug'})
 
