@@ -10,7 +10,6 @@ from tornado.httpclient import HTTPRequest
 from frontik.async import AsyncGroup
 from frontik.handler import HTTPError, PageHandler
 from frontik.testing.service_mock import route, route_less_or_equal_than, EmptyEnvironment
-from frontik.testing.pages import Page
 
 
 class TestPage(PageHandler):
@@ -95,6 +94,12 @@ class TestServiceMock(unittest.TestCase):
         )
 
     def test_call_get(self):
+        class Page(PageHandler):
+            def get_page(self):
+                self.json.put({
+                    'Hello': self.get_argument('param')
+                })
+
         result = EmptyEnvironment().add_arguments({'param': u'тест'}).call_get(Page)
         self.assertEqual(result.get_json_response()['Hello'], u'тест')
 

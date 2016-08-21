@@ -4,5 +4,5 @@ from frontik.handler import PageHandler
 
 
 class Page(PageHandler):
-    def __init__(self, *args, **kwargs):
+    def prepare(self):
         raise ValueError('FAIL')
