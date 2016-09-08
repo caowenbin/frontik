@@ -46,19 +46,43 @@ class TestHttpError(unittest.TestCase):
         self.assertEqual(response.content, b'<html><body>\n<h1>ok</h1>\n<h1>not ok</h1>\n</body></html>\n')
 
     def test_http_error_text(self):
-        response = frontik_test_app.get_page('test_exception_text')
+        response = frontik_test_app.get_page('http_error/text_kwarg')
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.content, b'This is just a plain text')
 
     def test_http_error_json(self):
-        response = frontik_test_app.get_page('test_exception_json')
+        response = frontik_test_app.get_page('http_error/json_kwarg')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.content, b'{"reason": "bad argument"}')
 
     def test_http_error_in_prepare(self):
-        response = frontik_test_app.get_page('http_error_in_prepare')
+        response = frontik_test_app.get_page('http_error/in_prepare')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.headers['X-Foo'], 'Bar')
+
+    def test_http_error_with_content(self):
+        content = {
+            'xml': b'<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<doc><ok xml="true"/></doc>',
+            'json': b'{"content": "json"}',
+            'text': b'Text content',
+            'xslt': b'<html><body><h1>ok</h1></body></html>\n',
+            'jinja': b'<html><h1>%%header%%</h1>json</html>'
+        }
+
+        for mode in ('xml', 'json', 'text', 'xslt', 'jinja'):
+            for reason in (None, 'Custom reason'):
+                for code in (200, 400, 503):
+                    reason_param = 'reason={}&'.format(reason) if reason is not None else ''
+                    response = frontik_test_app.get_page(
+                        'http_error/with_content?{}code={}&mode={}'.format(reason_param, code, mode)
+                    )
+
+                    self.assertEqual(response.status_code, code)
+                    self.assertEqual(response.headers['X-Custom-Header'], 'value')
+                    if reason is not None:
+                        self.assertEqual(response.reason, reason)
+
+                    self.assertEqual(response.content, content[mode])
 
     def test_write_error(self):
         response = frontik_test_app.get_page('write_error')

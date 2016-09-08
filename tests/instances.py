@@ -104,12 +104,6 @@ class FrontikTestInstance(object):
             notpl=('?' if '?' not in page else '&') + 'notpl' if notpl else ''
         )
 
-        # workaround for different versions of requests library
-        if 'auth' in kwargs and requests.__version__ > '1.0':
-            from requests.auth import HTTPBasicAuth
-            auth = kwargs['auth']
-            kwargs['auth'] = HTTPBasicAuth(auth[1], auth[2])
-
         return method(url, **kwargs)
 
     def get_page_xml(self, page, notpl=False):
