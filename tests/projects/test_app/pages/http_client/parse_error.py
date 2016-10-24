@@ -5,10 +5,11 @@ import frontik.handler
 
 class Page(frontik.handler.PageHandler):
     def get_page(self):
+        self.text = ''
 
         def callback_error(element, response):
             if element is None:
-                self.doc.put('42')
+                self.text += '42'
             else:
                 assert False
 

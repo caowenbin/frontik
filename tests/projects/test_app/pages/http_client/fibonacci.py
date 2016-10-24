@@ -13,16 +13,16 @@ class Page(frontik.handler.PageHandler):
         if n >= 2:
             self.acc = 0
 
-            def intermediate_cb(xml, response):
-                self.acc += int(xml.text)
+            def intermediate_cb(data, response):
+                self.acc += int(response.body)
 
             def final_cb():
                 self.log.debug('n=%s', self.acc)
-                self.doc.put(str(self.acc))
+                self.text = str(self.acc)
 
             grp = frontik.async.AsyncGroup(final_cb, name='acc')
 
             self.get_url(self_uri, {'n': str(n - 1)}, callback=grp.add(intermediate_cb))
             self.get_url(self_uri, {'n': str(n - 2)}, callback=grp.add(intermediate_cb))
         else:
-            self.doc.put('1')
+            self.text = '1'
