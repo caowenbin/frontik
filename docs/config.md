@@ -10,6 +10,8 @@ These options can be set for each Frontik instance (see [options.py](/frontik/op
 | ---------------------------- | ------- | ------------  | ---------------------------------------------------------------------- |
 | `host`                       | `str`   | `'0.0.0.0'`   | Host value for incoming connections                                    |
 | `port`                       | `int`   | `8000`        | Port to listen to                                                      |
+| `reuse_port`                 | `bool`  | `True`        | Binds server socket with SO_REUSEPORT option                           |
+| `xheaders  `                 | `bool`  | `False`       | Controls Tornado HTTPServer `xheaders` option                          |
 | `config`                     | `str`   | `None`        | Path to config file                                                    |
 | `log_blocked_ioloop_timeout` | `float` | `0`           | Enables logging of long-running IOLoop iterations                      |
 | `app`                        | `str`   | `None`        | Application package name (see [Frontik application structure](/docs/frontik-app.md)) |
@@ -44,9 +46,6 @@ Logging options:
 | `sentry_dsn`                 | `str`   | `None`        | Enable Sentry and set Sentry DSN for sending errors                    |
 
 The only option that is mandatory for running Frontik is `app` option — the name of application package.
-
-If you are using the [built-in supervisor](/docs/supervisor.md), you should specify the options for starting several
-Frontik instances in the same configuration file
 
 There are also certain options, that can be defined during application initialization, see
 [Configuring Frontik application](/docs/config-app.md) for more details.
