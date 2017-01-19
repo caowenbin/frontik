@@ -64,57 +64,75 @@ STARTER_SCRIPTS = {}
 
 
 def worker_is_alive(port, config):
+    print 'worker_is_alive? ({})'.format(port)
     try:
         path_beginning, _, path_ending = options.pidfile_template.partition('%(port)s')
         pidfile_pattern = '{}([0-9]+){}'.format(re.escape(path_beginning), re.escape(path_ending))
+        print 'check: pgrep -f {}'.format(pidfile_pattern)
         pidfile_grep_result = to_unicode(subprocess.check_output(['pgrep', '-f', pidfile_pattern])).strip().split('\n')
 
         for pid in pidfile_grep_result:
+            print 'check: ps -p {} -o command='.format(pid)
             cmdline = to_unicode(subprocess.check_output(['ps', '-p', pid, '-o', 'command='])).strip()
 
             if cmdline is not None and str(port) in cmdline and config in cmdline and 'python' in cmdline:
+                print 'worker_is_alive: ok'
                 return True
-
+        print 'worker_is_alive: fail'
         return False
     except (IOError, subprocess.CalledProcessError):
+        print 'worker_is_alive: fail with error'
         return False
 
 
 def worker_is_running(port):
+    print 'worker_is_running? {}'.format(port)
     try:
+        print 'try http://localhost:{}/status/'.format(port)
         response = urlopen('http://localhost:{}/status/'.format(port), timeout=1)
         for (header, value) in response.info().items():
             if header.lower() == 'server' and value.startswith('TornadoServer'):
+                print 'ok'
                 return True
+        print 'worker_is_running: fail'
         return False
     except URLError:
+        print 'worker_is_running: fail with error'
         return False
     except socket.error as e:
+        print 'worker_is_running: fail with socket error'
         logging.warning('socket error ({}) on port {}'.format(e, port))
         return False
 
 
 def worker_is_started(port, config):
+    print 'worker_is_started? {}'.format(port)
     shell_script_exited = STARTER_SCRIPTS.get(port, None) is None or STARTER_SCRIPTS[port].poll() is not None
     if not shell_script_exited:
+        print 'worker_is_started: fail'
         return False
 
     alive = worker_is_alive(port, config)
     running = worker_is_running(port)
 
     if alive and running:
+        print 'worker_is_started: ok'
         return True
 
     if not alive and not running:
         logging.error('worker on port %s failed to start', port)
-        return True
+        print 'worker_is_started: ok'
+        return True  # wtf?
 
+    print 'worker_is_started: fail'
     logging.info('waiting for worker on port %s to start', port)
     return False
 
 
 def start_worker(script, config=None, port=None, app=None):
+    print 'start_worker: {}, {}'.format(script, port)
     if worker_is_alive(port, config):
+        print 'start_worker: fail, another worker already started'
         logging.warning('another worker already started on %s', port)
         return None
 
@@ -137,11 +155,13 @@ def start_worker(script, config=None, port=None, app=None):
     else:
         args = [sys.executable] + args
 
+    print 'start_worker: start subprocess'
     STARTER_SCRIPTS[port] = subprocess.Popen(args)
     return STARTER_SCRIPTS[port]
 
 
 def stop_worker(port, signal_to_send=signal.SIGTERM):
+    print 'stop_worker: {}'.format(port)
     logging.debug('stopping worker %s', port)
     path = options.pidfile_template % dict(port=port)
     if not os.path.exists(path):
@@ -155,6 +175,7 @@ def stop_worker(port, signal_to_send=signal.SIGTERM):
 
 
 def cleanup_worker(port):
+    print 'cleanup_worker: {}'.format(port)
     pid_path = options.pidfile_template % dict(port=port)
     if os.path.exists(pid_path):
         try:
@@ -214,10 +235,14 @@ def stop(config):
 
 
 def start(script, app, config):
+    print 'start'
     map_workers(partial(start_worker, script, config, app=app))
+    print 'start: workers started'
     time.sleep(1)
+    print 'start: check if workers started'
     while not all(map_workers(lambda port: worker_is_started(port, config))):
         time.sleep(1)
+    print 'start: cleanup workers'
     map_workers(lambda port: cleanup_worker(port) if not worker_is_alive(port, config) else 0)
 
 
@@ -285,6 +310,7 @@ def supervisor(script, config, app):
 
     if cmd == 'start':
         start(script, app, config)
+        print 'exiting ...'
         sys.exit(status(expect='started'))
 
     if cmd == 'restart':
