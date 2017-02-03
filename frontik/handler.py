@@ -93,6 +93,8 @@ class BaseHandler(tornado.web.RequestHandler):
         self.xml = self.xml_producer  # deprecated synonym
         self.doc = self.xml_producer.doc
 
+        self.request.path_arguments = {}
+
         self._prepared = True
 
     def require_debug_access(self, login=None, passwd=None):

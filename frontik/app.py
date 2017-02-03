@@ -79,9 +79,11 @@ class StatusHandler(tornado.web.RequestHandler):
 
 def extend_request_arguments(request, match):
     arguments = match.groupdict()
+
     for name, value in iteritems(arguments):
         if value:
             request.arguments.setdefault(name, []).append(value)
+            request.path_arguments.setdefault(name, []).append(value)
 
 
 class FileMappingDispatcher(object):
