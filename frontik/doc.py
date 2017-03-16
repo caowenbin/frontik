@@ -84,6 +84,7 @@ class Doc(object):
                 yield chunk
 
             elif chunk is not None:
+                doc_logger.info(chunk)
                 raise ValueError('Unexpected value of type {} in doc'.format(type(chunk)))
 
         for chunk_element in chunk_to_element(self.data):
