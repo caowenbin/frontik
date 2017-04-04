@@ -66,6 +66,10 @@ class RequestLogger(logging.LoggerAdapter):
         self.extra['handler_name'] = self._page_handler_name
 
     def stage_tag(self, stage_name):
+        for stage in self.stages:
+            if stage.name == stage_name:
+                return
+
         stage_end_time = time.time()
         stage_start_time = self._last_stage_time
         self._last_stage_time = stage_end_time
