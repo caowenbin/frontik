@@ -368,7 +368,6 @@ class BaseHandler(tornado.web.RequestHandler):
 
     def flush(self, include_footers=False, **kwargs):
         self.log.stage_tag('finish')
-        self.log.info('finished handler %r', self)
 
         if self._prepared and self.debug.debug_mode.enabled:
             try:
