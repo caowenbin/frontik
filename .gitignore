@@ -17,6 +17,7 @@ debian/python-module-stampdir/
 dist/
 frontik.egg-info/
 .eggs/
+*.egg/
 
 *.log
 *.pid
