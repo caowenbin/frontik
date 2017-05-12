@@ -6,7 +6,8 @@ import unittest
 from lxml import etree
 from lxml_asserts.testcase import LxmlTestCaseMixin
 
-from frontik.xml_util import dict_to_xml, xml_from_file, xml_to_dict
+from frontik.producers.xml_producer import _xml_from_file
+from frontik.xml_util import dict_to_xml, xml_to_dict
 
 XML = etree.XML('''
     <root>
@@ -82,14 +83,14 @@ class TestXmlUtils(unittest.TestCase, LxmlTestCaseMixin):
             self.message = message % args
 
     def test_xml_from_file(self):
-        result = xml_from_file(self.XML_FILE, TestXmlUtils.MockLog())
+        result = _xml_from_file(self.XML_FILE, TestXmlUtils.MockLog())
         self.assertEqual(result.text, 'aaa')
 
     def test_xml_from_file_does_not_exist(self):
         log = TestXmlUtils.MockLog()
 
         with self.assertRaises(IOError):
-            xml_from_file(self.XML_MISSING_FILE, log)
+            _xml_from_file(self.XML_MISSING_FILE, log)
 
         self.assertIn('failed to read xml file', log.message)
 
@@ -97,6 +98,6 @@ class TestXmlUtils(unittest.TestCase, LxmlTestCaseMixin):
         log = TestXmlUtils.MockLog()
 
         with self.assertRaises(etree.XMLSyntaxError):
-            xml_from_file(self.XML_SYNTAX_ERROR_FILE, log)
+            _xml_from_file(self.XML_SYNTAX_ERROR_FILE, log)
 
         self.assertIn('failed to parse xml file', log.message)

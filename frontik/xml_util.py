@@ -1,28 +1,8 @@
 # coding=utf-8
 
-import time
-
 from lxml import etree
 
 from frontik.util import any_to_unicode
-
-
-def xml_from_file(filename, log):
-    try:
-        return etree.parse(filename).getroot()
-    except IOError:
-        log.error('failed to read xml file %s', filename)
-        raise
-    except:
-        log.error('failed to parse xml file %s', filename)
-        raise
-
-
-def xsl_from_file(filename, log):
-    start_time = time.time()
-    result = etree.XSLT(etree.parse(filename))
-    log.info('read xsl file %s in %.2fms', filename, (time.time() - start_time) * 1000)
-    return result
 
 
 def dict_to_xml(dict_value, element_name):

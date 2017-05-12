@@ -14,7 +14,6 @@ import frontik.util
 from frontik import file_cache
 from frontik.producers import ProducerFactory
 from frontik.util import raise_future_exception
-from frontik.xml_util import xml_from_file, xsl_from_file
 
 
 class XMLProducerFactory(ProducerFactory):
@@ -24,7 +23,7 @@ class XMLProducerFactory(ProducerFactory):
         self.xml_cache = file_cache.make_file_cache(
             'XML', 'XML_root',
             getattr(config, 'XML_root', None),
-            xml_from_file,
+            _xml_from_file,
             getattr(config, 'XML_cache_limit', None),
             getattr(config, 'XML_cache_step', None),
             deepcopy=True
@@ -33,7 +32,7 @@ class XMLProducerFactory(ProducerFactory):
         self.xsl_cache = file_cache.make_file_cache(
             'XSL', 'XSL_root',
             getattr(config, 'XSL_root', None),
-            xsl_from_file,
+            _xsl_from_file,
             getattr(config, 'XSL_cache_limit', None),
             getattr(config, 'XSL_cache_step', None)
         )
@@ -136,3 +135,21 @@ class XmlProducer(object):
 
     def __repr__(self):
         return '{}.{}'.format(__package__, self.__class__.__name__)
+
+
+def _xml_from_file(filename, log):
+    try:
+        return etree.parse(filename).getroot()
+    except IOError:
+        log.error('failed to read xml file %s', filename)
+        raise
+    except:
+        log.error('failed to parse xml file %s', filename)
+        raise
+
+
+def _xsl_from_file(filename, log):
+    start_time = time.time()
+    result = etree.XSLT(etree.parse(filename))
+    log.debug('read xsl file %s in %.2fms', filename, (time.time() - start_time) * 1000)
+    return result
