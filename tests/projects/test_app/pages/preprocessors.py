@@ -1,56 +1,85 @@
 # coding=utf-8
 
+from tornado.concurrent import Future
+
 from frontik.handler import HTTPError, PageHandler
+from frontik.preprocessors import preprocessor
 
 
-def first_preprocessor(handler, callback):
-    handler.set_header('Content-Type', 'text/plain')
-    handler.text = '1'
-    callback()
+@preprocessor
+def pp0(handler):
+    handler.run.append('pp0')
 
 
-def second_preprocessor(handler, callback):
-    if handler.get_argument('fail', 'false') == 'true':
-        raise HTTPError(503, 'error in preprocessor')
+@preprocessor
+def pp1(handler):
+    handler.run.append('pp1-before-yield')
+
+    done_future = Future()
+    done_future.set_result('pp1-between-yield')
+    result = yield done_future
+
+    handler.run.append(result)
+
+    self_uri = 'http://' + handler.request.host + handler.request.path
+    post_result = yield handler.post_url(self_uri)
+
+    if post_result.data.get('post'):
+        handler.run.append('pp1-after-yield')
+
+
+@preprocessor
+def pp2(handler):
+    self_uri = 'http://' + handler.request.host + handler.request.path
+    future = handler.post_url(self_uri)
+    handler.run.append('pp2')
+    handler.json.put(future)
+
+    if handler.get_argument('raise_error', 'false') != 'false':
+        raise HTTPError(400)
+    elif handler.get_argument('finish_with_postprocessors', 'false') != 'false':
+        handler.finish_with_postprocessors()
+    elif handler.get_argument('redirect', 'false') != 'false':
+        handler.redirect(self_uri + '?redirected=true')
+    elif handler.get_argument('finish', 'false') != 'false':
+        handler.finish('finished')
     else:
-        handler.text += ' 2'
-        callback()
+        return future
 
 
-def third_preprocessor(handler, callback):
-    handler.text += ' 3'
-    if handler.get_argument('nocallback', 'false') != 'true':
-        callback()
-
-
-def async_preprocessor(handler, callback):
-    def _cb(data, response):
-        handler.text += data.decode()
-        callback()
-
-    handler.post_url(handler.request.host + handler.request.path, callback=_cb)
-
-
-@PageHandler.add_preprocessor
-def preprocessor_as_decorator(handler, callback):
-    handler.text += ' 5'
-    callback()
-
-
-@PageHandler.add_preprocessor
-def post_preprocessor(handler, callback):
-    handler.text += ' 4'
-    callback()
+@preprocessor
+def pp3(handler):
+    handler.run.append('pp3')
 
 
 class Page(PageHandler):
-    preprocessors = (first_preprocessor, second_preprocessor, third_preprocessor)
+    preprocessors = [pp0]
 
-    @PageHandler.add_preprocessor(async_preprocessor)
-    @preprocessor_as_decorator
+    def prepare(self):
+        super(Page, self).prepare()
+
+        self._use_new_preprocessors = True
+
+        self.run = []
+        self.json.put({
+            'run': self.run
+        })
+
+        self.add_early_postprocessor(self.postprocessor)
+
+    @pp1
+    @preprocessor([pp2, pp3])
     def get_page(self):
-        self.text += ' 6'
+        if self.get_argument('redirected', 'false') != 'false':
+            self.json.replace({'redirected': True})
+            return
 
-    @post_preprocessor
+        self.run.append('get_page')
+
     def post_page(self):
-        self.text = ' ({})'.format(self.text)
+        self.text = {'post': self.run}
+
+    @staticmethod
+    def postprocessor(handler, callback):
+        handler.json.put({'postprocessor': True})
+        callback()
