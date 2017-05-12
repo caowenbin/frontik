@@ -42,9 +42,7 @@ class FrontikJsonEncoder(json.JSONEncoder):
     """
     This encoder supports additional value types:
     * sets and frozensets
-    * datetime.date objects
     * objects with `to_dict()` method
-    * objects with `to_json_value()` method
     * `Future` objects (only if the future is resolved)
     """
     def default(self, obj):
@@ -86,12 +84,12 @@ class JsonBuilder(object):
 
     def to_dict(self):
         """ Return plain dict from all data appended to JsonBuilder """
-        return _encode_value(self._concat_chunks())
+        return self._concat_chunks(encode_all=True)
 
-    def _concat_chunks(self):
+    def _concat_chunks(self, encode_all=False):
         result = {}
         for chunk in self._data:
-            if isinstance(chunk, (RequestResult, Future)) or hasattr(chunk, 'to_dict'):
+            if isinstance(chunk, (RequestResult, Future)) or hasattr(chunk, 'to_dict') or encode_all:
                 chunk = _encode_value(chunk)
 
             if chunk is not None:
@@ -109,5 +107,4 @@ class JsonBuilder(object):
         if issubclass(self._encoder, FrontikJsonEncoder):
             return json.dumps(self._concat_chunks(), cls=self._encoder, ensure_ascii=False)
 
-        # For backwards compatibility, remove when all encoders extend FrontikJsonEncoder
         return json.dumps(self.to_dict(), cls=self._encoder, ensure_ascii=False)
