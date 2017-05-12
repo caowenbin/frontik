@@ -4,18 +4,12 @@ import time
 
 from lxml import etree
 
-from frontik.util import any_to_unicode, asciify_url
-
-parser = etree.XMLParser()
+from frontik.util import any_to_unicode
 
 
 def xml_from_file(filename, log):
-    def _source_comment(src):
-        return etree.Comment('Source: {0}'.format(asciify_url(src).replace('--', '%2D%2D')))
-
     try:
-        res = etree.parse(filename).getroot()
-        return [_source_comment(filename), res]
+        return etree.parse(filename).getroot()
     except IOError:
         log.error('failed to read xml file %s', filename)
         raise
@@ -26,7 +20,7 @@ def xml_from_file(filename, log):
 
 def xsl_from_file(filename, log):
     start_time = time.time()
-    result = etree.XSLT(etree.parse(filename, parser))
+    result = etree.XSLT(etree.parse(filename))
     log.info('read xsl file %s in %.2fms', filename, (time.time() - start_time) * 1000)
     return result
 
