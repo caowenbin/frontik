@@ -5,11 +5,12 @@ Maintainer: Andrey Sumin <an.sumin@hh.ru>
 Build-Depends:
   debhelper (>= 8),
   python,
-  python-support,
+  python-support | dh-python,
   python-setuptools,
   python-nose,
   python-simplejson,
-  python-tornado (>= 3.2.2+hh7),
+  python-tornado (>= 3.2.2+hh14),
+  python-tornado (<< 4),
   python-jinja2,
   libcurl3,
   libcurl3-gnutls,
@@ -19,7 +20,7 @@ Build-Depends:
   libxml2-dev,
   libxslt1-dev,
   python-concurrent.futures,
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 X-Python-Version: >= 2.7
 
 Package: frontik
@@ -32,7 +33,8 @@ Depends:
   python,
   python-lxml,
   python-simplejson,
-  python-tornado (>= 3.2.2+hh7),
+  python-tornado (>= 3.2.2+hh14),
+  python-tornado (<< 4),
   python-jinja2,
   python-pycurl (>= 7.19.5),
   python-concurrent.futures,
